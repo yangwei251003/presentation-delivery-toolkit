@@ -1,0 +1,131 @@
+from pathlib import Path
+import json,shutil,base64,html
+W=Path(__file__).resolve().parent
+ROOT=W.parent
+GEN=Path(r'<LOCAL_USER_HOME>\.codex\generated_images\01a1148f-4cfe-7e82-805e-1269cbf98afe')
+assets=[
+('S01','城市水岸封面','721e55f5-567d-4479-a2d7-c4eb8905c8a6','数瞰封面；森林绿与香槟金、右侧概念城市、左侧留白'),
+('S02','数据档案与洞察','1f77dd5d-5331-475e-8ae5-5506dcde061e','问题章节；数据阅读与整理的概念静物'),
+('S03','城市空间与层次','c96a5b00-7e34-48c0-a11b-6d3929afc6db','体验章节；分层微缩城市，不能用作实际模型截图'),
+('S04','两条情景路径','5b7deedd-4f71-4380-b299-413aed318664','情景背景备选；两条光带象征假设路径，不作统计图'),
+('S05','来源核对与证据','58c19c47-afb1-454b-bb96-41bb3387beac','技术章节；文件与放大镜静物，突出核验'),
+('S06','城市水岸结尾','671fc3ae-89ca-4e5f-bf46-6193b0d40e87','结束页；城市集中右下角，大面积深绿留白'),
+('P01','纸艺团花封面','f7147862-b23e-493b-b453-542dea802ec1','纸上有数封面；米白纸纹与朱红团花，左侧留白'),
+('P02','折叠与展开','b31de37f-6790-4d05-aa89-3fb2fbbbbf4d','问题章节；折纸形态与剪纸静物，非精确算法图'),
+('P03','连接结构细节','d2ae6204-4e68-42f9-be0b-197c50914c46','体验章节；红色连接纸纹近景，非实验结果'),
+('P04','纸上实践静物','43dcae33-d206-4447-b26d-12c6a4749cf3','技术章节；纸、剪刀、团花，非实物验证照片'),
+('P05','对称蝴蝶','48c1967e-967c-4b1d-a754-0ab6a993b6b4','课程与传播背景备选；对称纸艺概念插画'),
+('P06','纸艺留白结尾','8552c759-24d9-48c2-9005-8a44cd4710c6','结束页；右下角团花与翻页，大面积米白留白')]
+for id,title,uid,use in assets:shutil.copy2(GEN/f'exec-{uid}.png',W/'imagegen素材'/f'{id}-{title}.png')
+def slide(title,copy,layout,visual,score,talk):
+    return dict(title=title,copy=copy.split('|'),layout=layout,visual=visual,score=score,talk=talk)
+S=[
+slide('数瞰——中国城市群数据探索平台','让城市数据，更容易读懂|广州科技职业技术大学|杨炜晨、示例成员1、示例成员2、示例成员3、示例成员4；指导教师：示例成员5、示例成员6','16:9满幅概念封面，标题置左，信息压在左下；42–48pt标题，20pt署名','S01；小字注明概念插画','展示与答辩','15秒：用一句话定义城市数据阅读与探索平台，随后直接进入作品问题。'),
+slide('目录｜从城市问题，到可核验的探索','01 为什么做：阅读城市数据的障碍|02 如何体验：定位、比较、情景与空间|03 如何实现：技术、验证、团队与应用','三行大编号目录，细分隔线，右侧一张真实地图局部；不罗列二十个页名','真实截图01局部','展示与答辩','15秒：交代三段结构，让评委知道接下来能看到哪些实际证据。'),
+slide('01｜城市数据，如何被看懂？','从分散的信息，走向有依据的观察','深绿章节页，单句大标题配小编号，保持大量留白','S02','选题价值与导向','8秒过渡：城市数据不缺，困难在于理解和比较。'),
+slide('同一个城市问题，常常需要反复切换资料','找城市：名称与范围分散|做比较：年份、单位和统计范围容易混淆|看变化：真实记录与假设结果需要区分','左侧三条短句，右侧用可编辑线性阅读路径：定位→比较→核对；不虚构调研比例','真实截图02中的来源区域，正式制作时裁切放大','选题价值与导向','30秒：这是项目的问题定义，不声称已经完成大规模用户调研。举“深圳和广州怎样比较”的操作场景。'),
+slide('定位：面向数据阅读与科普的城市探索平台','9个区域范围，41座去重城市|地图、统计、比较、情景与实景形成连续体验|精选范围明确标识，保留缺失值与来源入口','三个事实大数字或短词横排，底部一条完整用户路径；地图承担主视觉','真实截图01；数字来自当前发布目录','选题价值与导向；完成度与可验证性','30秒：说明服务对象是学习者与数据阅读者，当前覆盖为精选城市集合。避免将区域叠加为全国总量。'),
+slide('先统一口径，再谈视觉比较','每项记录保留年份、单位、范围和出处|40座城市具备核验的2025年末常住人口|南昌同年人口暂缺，2024参考值单独标注','左侧一张真实字段示例，右侧三条原则；缺失状态用灰色，来源用细线连接','从项目实际数据截取一条来源记录；原值不改写','技术实现与规范；创新性与原创贡献','35秒：说明数据目录与视觉表达的关系，缺失数据不补造、不同年份不混入同年合计。'),
+slide('02｜从一座城市，展开多种观察','定位 → 比较 → 情景 → 空间','沿用章节页构图，右侧概念城市；小号路径只出现一次','S03','展示与答辩','8秒：进入真实功能演示，接下来六页全部以实际界面为主。'),
+slide('从全国入口，快速找到目标城市','地图与城市检索互相配合|支持中文与拼音检索|定位后进入统一指标与来源视图','真实截图占70%，侧栏只留两到三条操作注释；最多3个编号标注','真实截图01、02，以01为主图','技术实现与规范；完成度与可验证性','30秒：讲清“搜索深圳→进入总览”的实际路径。主讲时可现场演示同一路径。'),
+slide('把三座城市，放在同一比较视角下','最多三城并列观察经济与产业差异|保留单位、年份和指标含义|比较帮助形成问题，再回到来源核对','真实三城界面大图；下方结论句只描述功能，不编造产业结论','真实截图03','创新性与原创贡献；完成度与可验证性','35秒：选择广州、深圳、佛山说明操作，若添加具体数据解读须逐项核对图上原值。'),
+slide('A/B情景：让假设和结果同时可见','调整增长参数，观察两条路径|保存情景A，再与情景B比较|结果可导出；情景属于假设计算','左侧实际参数区，右侧实际结果曲线，参数到结果用细箭头；图表必须来自运行结果','真实截图04；S04仅可作小面积过渡装饰','创新性与原创贡献；技术实现与规范','40秒：明确这是解释参数影响的工具，不把情景称为官方预测或机器学习预测。'),
+slide('气象信息，以有效时刻和来源为前提','展示城市代表点的数值天气预报|当前值属于模式估计|联网更新；不可用时给出明确状态','真实截图05占主要面积；有效时刻、来源、状态三处放大标注','真实截图05，保留截图时刻','技术实现与规范；完成度与可验证性','25秒：说明联网模块的边界，答辩当天不把历史截图当作当天实时天气。'),
+slide('五处空间场景，让数据阅读有地点感','西安、合肥、上海、广州、深圳五处展示|支持地标近景、日暮氛围与画质切换|实景、重建与概化内容保留来源说明','上海真实画面满幅，左上标题，底部小型地点文字带；避免用生成城市冒充模型','真实截图06；必要时另补其余模型真实细节','创新性与原创贡献；技术实现与规范','35秒：说明空间展示承担认识地点的作用，不将五处场景说成全国完整实时孪生。'),
+slide('导览、规则解读与来源核对，构成体验闭环','新用户可通过介绍与引导进入作品|本地规则解读协助阅读数据|导出结果后仍能追溯指标口径','一张站内引导主图，旁边三步路径与小型界面局部；不把介绍片当答辩视频','真实截图07；规则助手与导出界面正式制作时补截细节','应用与传播价值；完成度与可验证性','30秒：站内影片只服务网站导览；PPT中用截图概括，无需自动播放视频。'),
+slide('03｜每一次探索，都有实现与验证支撑','数据口径 · 交互实现 · 可运行交付','深绿章节页，文档核验概念图，标题居左','S05','展示与答辩','8秒：从体验转入实现依据。'),
+slide('实现：将数据、交互和空间组织为同一作品','React / TypeScript：页面与状态组织|MapLibre / SVG / Three.js：地图、图表与空间|Node / Express：本地服务与接口；发布包附运行时','原生可编辑三层架构图，每层不超过4个模块；明确开源基础与团队整合边界','可编辑架构图；源码结构为依据','技术实现与规范','40秒：讲每层解决什么问题，避免只报技术名词。地图数据与授权模型不计作独立制作资产。'),
+slide('创新落点：让比较过程可理解、可追溯','将“定位—比较—情景—核对”组织为连续阅读路径|在界面中呈现同年口径、缺失和假设边界|将二维数据阅读与五处空间场景连接','三条论点各配一个真实证据局部，横向三列仅用细分隔线；不用大段创新口号','截图02/03/04/06局部；每点与实际界面对齐','创新性与原创贡献','40秒：强调产品与信息表达整合的具体贡献，不宣称原创地图引擎、底层渲染器或统计方法。'),
+slide('已完成的软件验证，与交付方式','108项单元测试；既有核心交付检查通过|五处模型及部分移动视口已进行浏览器验证|本次团队页与8个截图场景通过，提交包另做解压启动核验','简洁证据表：检查对象/结果/边界；测试数保留说明，不换算覆盖率或成功率','实际检查记录；最终PPT引用更新后的压缩包启动结果','完成度与可验证性；技术实现与规范','40秒：测试证明已检查范围内可运行，不能保证所有设备、网络、驱动都没有问题。统计比较与模型本地可运行，天气和外部来源需要联网。'),
+slide('五位成员，共同承担产品、交互、技术与展示','杨炜晨｜项目统筹；示例成员1｜产品与交互策划|示例成员2｜前端与地图交互；示例成员3｜数据与服务逻辑|示例成员4｜视觉、质量与答辩','五行姓名与职责，院校和导师置页首；小字一段说明AI辅助，不放工具Logo作为主视觉','真实截图08作为小图或以可编辑文字重排','创新性与原创贡献；展示与答辩','35秒：这些是本次按岗位安排的职责，成员需按实际承担情况确认。AI说明如实列出方案比较、代码生成与修改、排错、文案和检查，不宣称AI未参与实现。'),
+slide('应用价值：更清楚地阅读城市，也更清楚地理解边界','适用于课堂展示、城市科普与自主数据探索|继续完善城市覆盖、历史连续性与使用反馈|当前不替代官方统计查询、测绘或专业决策','左侧现有价值，右侧未来方向，两列之间一条竖线；现有/计划标签清楚区分','轻量真实地图局部；S06可作淡化背景小图','应用与传播价值；选题价值与导向','30秒：没有用户数量或落地数据就不写；后续目标写成计划，避免夸大现实应用成效。'),
+slide('让城市数据，更容易读懂','数瞰——中国城市群数据探索平台|感谢聆听，欢迎交流与体验|广州科技职业技术大学 · 指导教师：示例成员5、示例成员6','结尾与封面呼应，大标题居左；不添加尚未核实的公网链接或二维码','S06','展示与答辩','10秒：回到价值主张，停留此页进入问答。')]
+P=[
+slide('纸上有数——剪纸结构与几何的交互实验工坊','在剪与展之间，看见对称与连接|广州科技职业技术大学|杨炜晨、示例成员1、示例成员2、示例成员3、示例成员4；指导教师：示例成员5、示例成员6','米白满幅背景，朱红纸艺在右，左侧两行主标题；不压字在复杂纸纹上','P01；小字注明概念插画','展示与答辩','15秒：介绍作品把剪纸操作、几何观察和结构反馈放在同一个浏览器工坊。'),
+slide('目录｜从一刀的疑问，到一套学习过程','01 为什么做：让纸艺中的几何可观察|02 如何体验：预测、剪切、展开、比较与留存|03 如何实现：技术、验证、团队与应用','三行章目与大编号，右侧一张真实展开图，细朱红线作导视','真实截图01中的展开区','展示与答辩','15秒：建立学习过程与技术实现两条线索。'),
+slide('01｜一刀之后，会出现什么？','把直觉变成可以观察和修正的过程','米白章节页，红色编号，折叠静物靠右；一句提问占左侧','P02','选题价值与导向','8秒：以预测展开图案的问题引入。'),
+slide('剪纸体验中，三个值得看清的问题','折起来的一刀，为什么会变成多个缺口？|图案仍然连在一起吗？|修改之后，结构和图案发生了什么？','三个问题纵向排版，右侧真实折叠与展开界面局部；没有调研百分比','真实截图01与02局部','选题价值与导向','30秒：问题来自作品设计场景，不包装成未经开展的用户实验结论。'),
+slide('定位：以剪纸为载体的几何探索工坊','支持2、4、8层固定折法的数字实验|绘制、展开、结构提示与历史编辑协同|围绕“预测—操作—观察—比较—记录”组织学习','一条五步学习路径作为主图，底部用一行说明当前范围；步骤图用原生可编辑元素','真实截图01小图，五步结构可编辑','选题价值与导向；创新性与原创贡献','35秒：项目重心是交互体验和观察过程，暂不把六折、看图还原或教师打印包算作已实现。'),
+slide('用纸艺的表达，承载明确的操作秩序','折叠操作与展开结果并置，降低来回寻找成本|以米白、朱红和纸纹建立材料感|引导、提示与主题设置照顾不同使用状态','真实全界面大图，三个克制注释，突出左右关系；界面证据优先于装饰图','真实截图01/06','创新性与原创贡献；技术实现与规范','30秒：说明视觉与交互如何服务学习，不能只谈“国风好看”。'),
+slide('02｜从预测开始，在比较中理解','预测 → 剪切 → 展开 → 比较 → 留存','朱红编号与短句，连接纸艺近景靠右；留白保持与封面一致','P03','展示与答辩','8秒：进入工坊实际操作。'),
+slide('同一刀，在折叠与展开之间建立联系','在折叠区域绘制剪口|展开视图随操作更新|通过展开过程观察重复与对称关系','左右两幅真实局部并置，中间细箭头；最多三个操作编号','真实截图01，正式制作时可补一个实际操作中间状态','技术实现与规范；完成度与可验证性','40秒：讲清输入与结果，避免把概念配图当作算法验证。'),
+slide('先预测，再看见结果与结构提示','记录自己的判断后展开观察|结构提示帮助注意连接变化|把“猜对没有”转化为“为什么会这样”','预测面板与展开区为两幅主图，底部一句教学设计解释；不写学习提升百分比','真实截图02','创新性与原创贡献；完成度与可验证性','35秒：证明学习流程已经实现，但学习效果仍需真人试用与测量。'),
+slide('修改前后对照，让试错留下依据','回看和编辑历史剪口|观察修改前后的结构差异|根据提示继续调整，而非只得到一个最终图案','前后真实状态等大并排，变化处用细线圈选；不重绘或伪造结果','真实截图03；需要局部放大时保持原图内容','创新性与原创贡献；技术实现与规范','40秒：用一次实际修改解释反馈闭环。结构结果是数字几何判断，不是纸张强度保证。'),
+slide('作品与学习记录，让探索可以继续','自动保存与作品管理降低中断成本|保留项目状态，支持后续查看与修改|项目导入导出支持跨次延续','真实作品管理主图占70%，旁边用文件流向小图说明；敏感个人数据不出现','真实截图04','完成度与可验证性；应用与传播价值','30秒：展示重新进入与管理作品的实际入口，不宣称云同步或多人协同。'),
+slide('灵感与课程，提供继续尝试的方向','13个课程内容支持分步探索|灵感库提供图案方向与操作线索|从模仿起步，再回到自己的修改与观察','真实灵感库图占主面积，课程路径以三行短语呈现；P05只用在空白边缘','真实截图05；课程条目从实际内容核对','应用与传播价值；选题价值与导向','35秒：清楚区分原创步骤组织、参考素材与来源，不能把所有传统图案称为独创。'),
+slide('从浏览器走向纸面：保留尺寸与输出途径','支持项目、矢量图和打印纸样输出|提供17份数字纸样材料|打印应校准标尺，实物剪切效果仍待验证','一张实际导出/纸样预览主图配毫米标尺说明；正式制作补截导出结果','使用包内真实print-samples；禁止以P04冒充实物打样','技术实现与规范；应用与传播价值','35秒：数字输出已具备，真人打印、剪切和材料强度效果没有实测就明确留待后续。教师打印包属于后续计划，不等同已有打印输出。'),
+slide('03｜把纸艺体验，落实为可计算与可运行的作品','几何一致性 · 交互反馈 · 本地交付','延续米白章节构图，剪纸静物在右；图注明概念配图','P04','展示与答辩','8秒：过渡到核心实现与验证依据。'),
+slide('实现：让绘制、计算与反馈保持一致','页面负责绘制、历史、作品和学习状态|计算Worker处理几何任务，结果用于展开与结构提示|毫米坐标与存档格式连接导入、导出和打印','原生可编辑流程图：输入→计算→结果→存储/导出；只画真实模块，第三方内核单独标注','源码结构与几何内核调用为依据','技术实现与规范','40秒：解释一致性和响应性设计，明确使用/适配既有几何内核的边界，不将底层库称为完全自研。'),
+slide('创新落点：把“做出来”扩展为“看明白”','将预测与展开结果组织成观察过程|将连接结构反馈嵌入剪纸编辑体验|用历史比较和学习记录保留探索过程','三条贡献分别配真实界面局部，低密度横向排布；用具体行为替代大词','截图02/03/04局部','创新性与原创贡献','40秒：强调课程、交互、视觉与技术整合。不要主张已证明教学显著有效，也不宣称首创数学原理。'),
+slide('已完成的软件验证，与尚待实物验证的部分','134项单元测试；既有120个端到端用例通过|核心交付与本次8个截图场景检查通过|打印校准、真实剪切与真人学习效果仍需后续验证','两组证据：已完成的软件检查/后续现实验证；用表格平静呈现，不堆叠通过徽章','实际测试及本次浏览器检查记录','完成度与可验证性；技术实现与规范','40秒：说明这是软件验证结果，120个用例来自既有两段完成记录，本次团队信息更新后做了针对性构建和操作复核。'),
+slide('五位成员，从课程、技术到展示共同协作','杨炜晨｜项目统筹；示例成员1｜课程与交互策划|示例成员2｜前端与交互开发；示例成员3｜几何与数据逻辑|示例成员4｜视觉、质量与答辩','五行姓名和职责，参照网站团队页的细线排版；学校和导师置顶部','真实截图08或可编辑文字重排','创新性与原创贡献；展示与答辩','35秒：按实际工作确认责任分配。AI辅助如实包括方案、代码生成修改、问题定位、文案与检查；辅助工具不替代成员身份和作品责任。'),
+slide('应用价值：让纸艺成为可反复探索的几何入口','可用于课堂演示、自主探索与纸艺科普|后续开展真人试用、打印与实物剪切验证|六折、看图还原挑战、教师打印包作为后续方向','上半页现有应用，下半页计划清单；明确“计划”标签，避免和现有功能混排','真实截图07小图；P05可作右侧小型装饰','应用与传播价值；选题价值与导向','30秒：这些未来功能不影响当前2/4/8折、绘制展开、结构反馈和记录导出的核心体验；参赛资格仍以竞赛规则审核为准。'),
+slide('在剪与展之间，看见对称与连接','纸上有数——剪纸结构与几何的交互实验工坊|感谢聆听，欢迎交流与体验|广州科技职业技术大学 · 指导教师：示例成员5、示例成员6','米白结尾，朱红团花收在右下，中心保持留白；结束语不超过三行','P06','展示与答辩','10秒：停留结尾进入问答，可返回核心操作页展示。')]
+assert len(S)==len(P)==20
+projects=[dict(name='数瞰',folder='prd-digital-twin',palette='森林绿 #102B22 / 香槟金 #C6B97C / 暖白 #F5F3EB',style='城市观察图录：用深绿封面和章节页建立识别，正文采用暖白底、绿标题和克制的数据注释。真实界面是功能页的主视觉。',slides=S,prefix='S'),dict(name='纸上有数',folder='纸上有数——剪纸结构与几何的交互实验工坊',palette='米白 #FAF6ED / 朱红 #B22A21 / 墨棕 #493C31',style='纸艺实验手册：封面与过渡页保留纸纹，正文使用干净米白底、朱红细线和有节奏的留白。纸纹不覆盖正文与真实图表。',slides=P,prefix='P')]
+refs=[
+('2026官方评分标准','https://static.cmit.cn/uploadfile/2026/0924/附件2 2026年第十四届全国大学生数字媒体科技作品及创意竞赛评分标准及奖项设置.pdf','主办方评分依据；本地保存原PDF及评分表。围绕选题10、创新25、技术25、完成度20、应用10、展示10安排证据。'),
+('Duarte · VMware 数据叙事案例','https://www.duarte.com/approach/case-studies/reimagining-vmwares-high-stakes-industry-report-as-a-stunning-data-story/','数瞰主要参考：用清楚的标题、目录和单一信息重点组织数据；不借用案例中的数据与结论。'),
+('Duarte · Freeman 数据故事案例','https://www.duarte.com/approach/case-studies/helping-freeman-create-moments-that-matter-with-data-storytelling/','数瞰叙事参考：从数据组织到有层次的解释，一页表达一个判断。'),
+('Pitch · Design Agency Pitch Deck','https://pitch.com/templates/Design-Agency-Pitch-Deck-4CNqag4fidYd5p29KQ7L9D18','数瞰版式候选：鲜明主视觉与简洁信息层级。只参考节奏，不照搬商业融资内容。'),
+('Pitch · Interior Design Proposal','https://pitch.com/templates/Interior-Design-Proposal-4vWn3k3yheGf4Z9jh43PqqLM','纸上有数版式候选：材料、色板、留白与作品图的关系；正文保持足够字号。'),
+('Pitch · 官方美学模板导览','https://pitch.com/blog/aesthetic-presentation-templates','用于核对上述两个模板的官方设计说明；模板页面文本抓取有限，未将其描述成已下载编辑的成品。'),
+('Slidesgo · Formal Research Paper Slideshow','https://slidesgo.com/theme/formal-research-paper-slideshow','两项目结构参考：问题、方法、分析、结论的清楚层次；不套用论文长段落。'),
+('Slidesgo · Old Paper Style Bachelor’s Thesis','https://slidesgo.com/theme/old-paper-style-bachelors-thesis','纸上有数纹理参考：纸面质感与严谨章节。弱化仿旧、花边和装饰，保留几何实验气质。'),
+('Pentagram · Fedrigoni','https://www.pentagram.com/work/fedrigoni','纸上有数材料与字体参考；这是品牌设计案例，非PPT模板。借鉴纸材呈现和清晰排版，不使用其商标或专有视觉资产。')]
+skills=[
+('Presentations（本地演示文稿技能）','主制作路线','已读取制作规范；@oai/artifact-tool 2.8.59已实测导入。正式制作时用于可编辑文字、图表、布局和PPTX导出，导出后仍需渲染检查。'),
+('imagegen（内置图像生成）','封面与章节配图','已实际生成12张独立PNG，每项目6张。只承担概念装饰，功能与验证使用真实页面。'),
+('delivery-artifact','本次审查材料','已应用于单文件HTML审查页，方便逐页核对大纲、截图、配图与参考来源。'),
+('theme-factory','主题组织','已阅读，用作色彩与字体体系的组织参考；本次自定义两套项目主题，尚未套用到正式PPT。'),
+('gpt-image-2-style-library','配图风格候选','已查阅技能入口；未把未使用的模板说成已应用。本次配图以两个项目自身视觉语言定向生成。'),
+('Canva连接器','云端模板备选','实际调用品牌模板搜索返回UNAUTHORIZED，需要重新认证；当前未依赖它，未创建云端设计，也未付费下载模板。')]
+common='''本文件是正式PPT制作前的审查方案。两项目各20页，包含封面、目录、3张章节过渡、14张内容页和结尾。建议先按约8–10分钟讲解排练，再按赛事实际答辩时长压缩讲稿；20页包含短过渡页，不等于20页密集正文。
+
+正式稿统一16:9。封面标题42–48pt，正文标题32–36pt，正文20–24pt，来源及辅助文字原则上不低于17pt。优先减字和拆分，不用缩小字体塞满。中文标题可用Noto Serif SC，正文Noto Sans SC；本机已核实字体，兼容回退为微软雅黑。正式PPT须检查字体替换与投影可读性。
+
+功能页以真实运行截图为主，默认60%–75%画面用于证据。保留截图原始内容，最多3处标注；数据图表与架构图采用可编辑对象。生成式配图用于封面、过渡和结尾，不冒充网站界面、真实城市摄影、实物打样或实验结果。网站影片属于产品内容，答辩选择PPT，无需另交答辩视频。
+
+成员岗位由本次按用户要求安排，应在正式提交前由成员按真实承担情况确认。AI说明保留方案比较、代码生成与修改、排错、文案及检查等实际辅助环节，不编造贡献比例，也不删除实际发生的AI参与。
+'''
+for project in projects:
+    lines=[f"# {project['name']}｜20页答辩PPT逐页方案",common,f"## 视觉方向\n\n{project['style']}\n\n色彩：{project['palette']}"]
+    for i,s in enumerate(project['slides'],1):
+        lines.extend([f"## {i:02d}｜{s['title']}",'\n**页面正文**\n',*['- '+x for x in s['copy']],f"\n**视觉与排版：** {s['layout']}",f"\n**使用素材：** {s['visual']}",f"\n**对应评分：** {s['score']}",f"\n**讲解重点：** {s['talk']}"])
+    (W/f"{project['name']}-20页答辩PPT逐页方案.md").write_text('\n\n'.join(lines),encoding='utf-8')
+(W/'逐页方案与素材清单.json').write_text(json.dumps(dict(projects=projects,assets=[dict(id=a[0],title=a[1],use=a[3],tool='OpenAI内置imagegen',file=f'imagegen素材/{a[0]}-{a[1]}.png') for a in assets],references=refs,capabilities=skills),ensure_ascii=False,indent=2),encoding='utf-8')
+(W/'风格参考与制作能力筛选.md').write_text('# 风格参考与制作能力筛选\n\n'+common+'\n## 参考来源\n\n'+'\n\n'.join(f'- [{t}]({u})：{d}' for t,u,d in refs)+'\n\n上述案例仅用于风格与叙事研究；未下载付费模板或复制模板素材。不是每个来源都属于可直接复用的PPT模板。正式稿使用自建可编辑布局、真实项目截图与本次生成配图。\n\n## 已筛选能力\n\n'+'\n\n'.join(f'- **{t}｜{r}**：{d}' for t,r,d in skills),encoding='utf-8')
+(W/'imagegen素材/配图使用说明.md').write_text('# Imagegen配图使用说明\n\n12张图片均由本会话的OpenAI内置imagegen生成，每项目6张。以下为生成要求与用途概述，不冒充完整原始提示词逐字记录。\n\n统一要求：16:9、无文字/数字/水印/标志，左侧保留约45%–55%的标题空间，右侧主体，避免伪造界面和数据图。数瞰采用森林绿、香槟金及概念城市；纸上有数采用米白纸材与朱红剪纸。\n\n'+'\n\n'.join(f'- **{id} {title}**：{use}。' for id,title,uid,use in assets)+'\n\n正式PPT应优先选用封面、三张过渡、结尾所需图片，其余作为替换备选，避免为了用完素材而增加装饰。',encoding='utf-8')
+def esc(s):return html.escape(str(s),quote=True)
+def data(p):return 'data:image/png;base64,'+base64.b64encode(p.read_bytes()).decode()
+def img(p,alt):return f'<img loading="lazy" src="{data(p)}" alt="{esc(alt)}">'
+nav='<nav><a href="#summary">总览</a><a href="#team">团队页面</a><a href="#S">数瞰20页</a><a href="#P">纸上有数20页</a><a href="#shots">16张截图</a><a href="#art">12张配图</a><a href="#refs">参考与工具</a></nav>'
+body=['<header id="summary"><p class="eyebrow">2026 · 答辩制作前审查</p><h1>两个作品，两条清楚的叙事。</h1><p class="lead">原网站团队信息已经补齐。接下来，以真实功能证据为主体，组织两份各20页的答辩PPT。</p><div class="facts"><span><b>2</b> 个作品</span><span><b>40</b> 页详细方案</span><span><b>16</b> 张真实截图</span><span><b>12</b> 张概念配图</span></div></header>',nav,'<main><section><h2>审查重点</h2><p>本页供你审核内容与设计方向，尚未制作正式PPTX。建议重点确认成员职责、每页论点和两套视觉风格。20页均包含封面、目录、三张过渡页和结尾；建议按约8–10分钟先排练，再结合实际答辩时长调整。</p><p>学校：广州科技职业技术大学；指导教师：示例成员5、示例成员6；成员：杨炜晨、示例成员1、示例成员2、示例成员3、示例成员4。</p><table><thead><tr><th>官方评分维度</th><th>分值</th><th>主要证据页</th></tr></thead><tbody>']
+for row in [('选题价值与导向','10','4–6、19'),('创新性与原创贡献','25','6、8–10、16、18'),('技术实现与规范','25','6、8–13、15、17'),('完成度与可验证性','20','8–13、17'),('应用与传播价值','10','13、19'),('作品展示与答辩','10','整体结构、真实界面和讲解逻辑')]:body.append('<tr>'+''.join('<td>'+esc(x)+'</td>' for x in row)+'</tr>')
+body.append('</tbody></table><p class="note">依据2026官方评分标准。分值用于检查证据覆盖，不代表预估得分。正式PPT不会逐页堆放“评分标签”。</p></section><section id="team"><h2>原网站的团队页面</h2><p>两项目的源代码与生产网页均已更新，截图来自实际浏览器运行。岗位为按本次要求安排的责任分工，请成员按实际承担情况确认。</p>')
+for p in projects:
+    out=ROOT/p['folder']/'artifacts/competition-team-20261007'
+    body.append(f'<h3>{p["name"]} · '+('认识数瞰 → 关于团队' if p['prefix']=='S' else '工坊指南 → 我们的团队')+'</h3>'+img(out/f'{p["name"]}-团队页面效果.png',p['name']+'团队实际页面'))
+body.append('</section>')
+for p in projects:
+    body.append(f'<section id="{p["prefix"]}"><p class="eyebrow">20 PAGE STORYBOARD</p><h2>{p["name"]} · 逐页审查</h2><p>{p["style"]}</p><p class="palette">{p["palette"]}</p>')
+    for i,s in enumerate(p['slides'],1):
+        body.append(f'<details {"open" if i in [1,16] else ""}><summary><span class="num">{i:02d}</span>{esc(s["title"])}</summary><div class="detail"><h4>页面正文</h4><ul>'+''.join('<li>'+esc(x)+'</li>' for x in s['copy'])+'</ul>'+''.join(f'<p><strong>{label}</strong> {esc(s[key])}</p>' for label,key in [('视觉与排版','layout'),('使用素材','visual'),('对应评分','score'),('讲解重点','talk')])+'</div></details>')
+    body.append('</section>')
+body.append('<section id="shots"><h2>作品截图 · 每项目8张</h2><p>均来自更新后的作品实际运行环境。点击图片可在浏览器内查看原始尺寸；图像没有用生成式工具替代界面。</p>')
+for p in projects:
+    shots=ROOT/p['folder']/'artifacts/competition-team-20261007/作品截图-8张'
+    body.append(f'<h3>{p["name"]}</h3><div class="gallery">')
+    for f in sorted(shots.glob('*.png')):body.append('<figure>'+img(f,f.stem)+f'<figcaption>{esc(f.stem)}</figcaption></figure>')
+    body.append('</div>')
+body.append('</section><section id="art"><h2>已生成的12张配图</h2><p>工具：OpenAI内置imagegen。每项目6张，统一16:9。用于封面、章节和结尾；不作为产品功能、真实城市或实物验证证据。</p><div class="gallery">')
+for id,title,uid,use in assets:body.append('<figure>'+img(W/'imagegen素材'/f'{id}-{title}.png',title)+f'<figcaption><b>{id} · {title}</b><br>{use}</figcaption></figure>')
+body.append('</div></section><section id="refs"><h2>参考案例与模板筛选</h2><p>选用数据叙事、设计提案与纸材表达三类参考。以下保留原链接与借鉴范围；未购买、下载或直接复制付费模板。</p><ol>')
+for t,u,d in refs:body.append(f'<li><a href="{esc(u)}" target="_blank" rel="noopener noreferrer">{esc(t)}</a><p>{esc(d)}</p></li>')
+body.append('</ol><h2>制作能力与实际状态</h2><table><thead><tr><th>技能 / 插件</th><th>用途</th><th>核实状态</th></tr></thead><tbody>')
+for row in skills:body.append('<tr>'+''.join('<td>'+esc(x)+'</td>' for x in row)+'</tr>')
+body.append('</tbody></table></section><section><h2>提交前还需你补齐的材料</h2><p>两项目分别补充平台要求的签署承诺书；正式答辩PPT将在你审查方案后制作。当前8张截图各自可直接作为上传文件，尚未代替你提交到赛事平台。若平台另有官方AI勾选/声明模板，应按实际使用情况填写；包内说明不能代替平台必填表单。</p><p>数瞰素材授权按你已确认的事实保留说明与署名。六折、看图还原挑战、教师打印包不纳入当前已实现功能；不影响纸上有数现有核心链路。真实打印、剪切和教学效果验证可后续完成，现阶段不写成既有结果。</p><p>审查方案、内部检查记录和提醒文件均放在参赛压缩包外。评委包只保留作品运行、源码、运行说明、作品资料与必要许可。</p></section></main><footer>2026-10-07 · 正式PPT制作前审查版 · 图片均已嵌入，离线可浏览</footer><dialog id="viewer"><button type="button" aria-label="关闭图片预览">关闭 ×</button><img alt="大图预览"></dialog>')
+css='''*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:76px}body{margin:0;background:#f7f6f2;color:#24372e;font:17px/1.8 "Noto Sans SC","Microsoft YaHei",sans-serif}header,main,nav,footer{max-width:1180px;margin:auto}header{padding:76px 32px 44px}h1{font:600 clamp(36px,4.5vw,58px)/1.25 "Noto Serif SC",serif;letter-spacing:-1px;margin:12px 0 24px}h2{font:600 32px/1.4 "Noto Serif SC",serif;margin:0 0 24px}h3{font-size:24px;margin-top:38px}.eyebrow{font-size:12px;letter-spacing:3px;color:#60776a}.lead{max-width:780px;font-size:21px}.facts{display:flex;gap:48px;flex-wrap:wrap;margin-top:35px}.facts span{font-size:14px}.facts b{font-size:32px;margin-right:9px}nav{position:sticky;top:0;background:#f7f6f2f5;backdrop-filter:blur(12px);z-index:5;display:flex;gap:23px;padding:14px 32px;border-top:1px solid #cbd2c8;border-bottom:1px solid #cbd2c8;flex-wrap:wrap}a{color:#285d45;text-underline-offset:4px}nav a{font-size:14px;text-decoration:none}main{padding:0 32px}section{padding:58px 0;border-bottom:1px solid #cbd2c8}p{max-width:1000px}table{width:100%;border-collapse:collapse;font-size:15px;margin:26px 0}td,th{text-align:left;padding:15px 16px;border-bottom:1px solid #d5d9cf;vertical-align:top}th{background:#e8ece3}td:first-child{min-width:150px}.note{font-size:14px;color:#637366}img{max-width:100%;height:auto;display:block}.palette{font-family:monospace;background:#edf0e9;padding:15px 20px}details{border-bottom:1px solid #d4d9d0}summary{cursor:pointer;padding:22px 0;font-weight:600;list-style:none;font-size:19px}summary::after{content:'＋';float:right;color:#60776a}details[open] summary::after{content:'−'}.num{display:inline-block;width:58px;color:#698070;font:400 22px Georgia,serif}.detail{padding:0 25px 28px 58px}.detail p{font-size:16px}.detail strong{display:inline-block;min-width:105px}h4{margin:0}.gallery{display:grid;grid-template-columns:1fr 1fr;gap:32px 26px}figure{margin:0}figure img{cursor:zoom-in;background:#e9ece5}figcaption{font-size:14px;line-height:1.6;padding-top:12px;color:#5c6e62}li p{font-size:15px;margin:8px 0 24px}footer{padding:35px 32px;font-size:13px;color:#748075}dialog{max-width:96vw;max-height:95vh;border:0;padding:12px;background:#f7f6f2}dialog::backdrop{background:#102b22cc}dialog button{display:block;margin:0 0 10px auto;border:1px solid #aebaaa;padding:8px 16px;background:#fff;cursor:pointer}dialog img{max-height:84vh;width:auto;margin:auto}@media(max-width:700px){header{padding:42px 20px 30px}main{padding:0 20px}nav{padding:10px 20px;gap:9px 18px;position:relative}.gallery{grid-template-columns:1fr}.facts{gap:20px}.detail{padding-left:0}table{font-size:12px}td,th{padding:10px 6px}td:first-child{min-width:0}summary{font-size:17px}.num{width:40px}h2{font-size:27px}section{padding:38px 0}}'''
+script='''const d=document.getElementById('viewer');document.querySelectorAll('figure img').forEach(im=>im.addEventListener('click',()=>{d.querySelector('img').src=im.src;d.querySelector('img').alt=im.alt;d.showModal()}));d.querySelector('button').addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close()});'''
+(W/'双项目答辩方案审查.html').write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双项目答辩方案审查</title><style>'+css+'</style>'+''.join(body)+'<script>'+script+'</script></html>',encoding='utf-8')
+print(json.dumps({'slides':len(S)+len(P),'generatedAssets':len(assets),'review':str(W/'双项目答辩方案审查.html')},ensure_ascii=False))

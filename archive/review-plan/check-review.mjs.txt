@@ -1,0 +1,30 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+import {chromium} from '../prd-digital-twin/node_modules/playwright-core/index.mjs';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1500,height:1050},deviceScaleFactor:1});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(root,'双项目答辩方案审查.html')).href);
+ await page.evaluate(()=>document.fonts.ready);
+ assert.equal(await page.locator('details').count(),40);
+ assert.equal(await page.locator('figure').count(),28);
+ await page.locator('img[src]').evaluateAll(imgs=>{imgs.forEach(i=>i.loading='eager');return Promise.all(imgs.map(i=>i.decode()));});
+ assert.ok(await page.locator('main img').evaluateAll(imgs=>imgs.every(i=>i.naturalWidth>0)));
+ await page.screenshot({path:path.join(root,'审查页桌面预览.png')});
+ await page.locator('nav').evaluate(el=>el.style.visibility='hidden');
+ await page.locator('#shots').screenshot({path:path.join(root,'16张真实截图总览.png')});
+ await page.locator('#art').screenshot({path:path.join(root,'12张配图总览.png')});
+ await page.locator('nav').evaluate(el=>el.style.visibility='');
+ await page.locator('figure img').first().click();assert.equal(await page.locator('dialog[open]').count(),1);await page.getByRole('button',{name:'关闭图片预览'}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(()=>scrollTo(0,0));
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:path.join(root,'审查页手机预览.png')});
+ assert.deepEqual(errors,[]);
+ await fs.writeFile(path.join(root,'内部审查页检查.json'),JSON.stringify({status:'passed',slidePlans:40,realScreenshots:16,imagegenAssets:12,desktopWidth:1500,mobileWidth:390,pageErrors:errors},null,2));
+ console.log('review passed: 40 slide plans, 16 real screenshots, 12 generated assets, no broken images or script errors, desktop/mobile fit');
+}finally{await browser.close();}

@@ -1,0 +1,97 @@
+[
+  {
+    "path": "archive/team-package/finalize-team-packages.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/team-package/prepare-judge-packages-20261007.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/team-package/verify-judge-packages-20261007.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/team-package/verify-team-packages-20261007.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/review-plan/build-review.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/review-plan/check-review.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/build.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/content.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/embed-native.ps1.txt",
+    "language": "ps1",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/final-copyedit.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/finish-delivery.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/finish-embedded.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/prepare-fonts.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/service-value-deck/verify-embedded.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/formal-deck/build-decks.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/formal-deck/capture-print.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/formal-deck/capture-scenario.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/formal-deck/finish-delivery.py.txt",
+    "language": "py",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  },
+  {
+    "path": "archive/formal-deck/render-final.mjs.txt",
+    "language": "mjs",
+    "mode": "inert source archive; private runtime/assets must be independently supplied"
+  }
+]

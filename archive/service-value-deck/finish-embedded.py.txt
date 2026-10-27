@@ -1,0 +1,31 @@
+from pathlib import Path
+root=Path(__file__).resolve().parent.parent
+archive=root/'制作记录'/'字体嵌入核对'/'旧文件留存'
+archive.mkdir(exist_ok=True)
+for name in ['数瞰','纸上有数']:
+    for suffix in ['服务价值版','字体嵌入版']:
+        p=root/'提交文件'/f'{name}-答辩PPT-{suffix}.pptx'
+        assert p.resolve().is_relative_to(root.resolve())
+        if p.exists():
+            assert not (archive/p.name).exists()
+            p.rename(archive/p.name)
+    folder=root.parent/'待补充材料-不放入评委运行包'/name/'02-正式答辩PPT'
+    p=folder/f'{name}-答辩PPT-服务价值版.pptx'
+    if p.exists():
+        old=folder/'旧版留存'
+        old.mkdir(exist_ok=True)
+        assert p.resolve().is_relative_to(root.parent.resolve())
+        assert not (old/p.name).exists()
+        p.rename(old/p.name)
+for p in [root/'使用与提交说明.md',root.parent/'本次交付入口-团队与答辩方案-20261007.md']:
+    s=p.read_text(encoding='utf-8')
+    s=s.replace('-答辩PPT-服务价值版.pptx','-答辩PPT-字体完整嵌入版.pptx')
+    s=s.replace('已下载并应用四组字体，字体未嵌入PPTX；','已下载并应用四组字体，现已通过Microsoft PowerPoint将四组字体完整嵌入PPTX；')
+    s=s.replace('；未在Microsoft PowerPoint本体实测。','；本次已在Microsoft PowerPoint中重新打开并导出全部页面，嵌入前后48页像素一致。')
+    start=s.find('PPTX未嵌入字体。')
+    end=s.find('\n\n',start) if start>=0 else -1
+    if start>=0:
+        s=s[:start]+'最新版已使用Microsoft PowerPoint的原生保存功能嵌入四组字体，并保留完整字符设置。字体随PPTX交付，在支持嵌入字体的桌面PowerPoint中无需另行下载。字体源文件仍保留供后续维护。其他软件或网页预览器是否使用嵌入字体取决于其兼容性。'+s[end:]
+    s=s.replace('当前未在Microsoft PowerPoint本体实测；其他演示软件的字体替换和自动换行仍可能存在差异。可先通过PDF查看本版完整视觉效果。','本次已使用Microsoft PowerPoint 16.0重新打开两份嵌入版，并分别导出全部24页。对比嵌入前后的PowerPoint渲染，48页均像素一致，幻灯片与备注文本完全一致。已核对包内四组字体、六个字体数据部件和引用关系；未在未安装字体的另一台电脑上实测。其他演示软件或网页预览的兼容性仍可能不同。')
+    p.write_text(s,encoding='utf-8')
+print('Latest links and upload copies updated; previous files archived.')

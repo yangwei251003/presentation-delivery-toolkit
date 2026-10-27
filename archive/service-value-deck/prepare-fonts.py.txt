@@ -1,0 +1,43 @@
+from pathlib import Path
+import urllib.request, concurrent.futures, json, os, shutil, winreg, ctypes
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+root=Path(__file__).resolve().parents[1]
+dest=root/'字体与许可'
+items={
+ 'NotoSansSC-Variable.ttf':'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf',
+ 'NotoSerifSC-Variable.ttf':'https://raw.githubusercontent.com/google/fonts/main/ofl/notoserifsc/NotoSerifSC%5Bwght%5D.ttf',
+ 'LXGWWenKai-Regular.ttf':'https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/fonts/TTF/LXGWWenKai-Regular.ttf',
+ 'MaShanZheng-Regular.ttf':'https://raw.githubusercontent.com/google/fonts/main/ofl/mashanzheng/MaShanZheng-Regular.ttf',
+ 'NotoSansSC-OFL.txt':'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/OFL.txt',
+ 'NotoSerifSC-OFL.txt':'https://raw.githubusercontent.com/google/fonts/main/ofl/notoserifsc/OFL.txt',
+ 'LXGWWenKai-OFL.txt':'https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt',
+ 'MaShanZheng-OFL.txt':'https://raw.githubusercontent.com/google/fonts/main/ofl/mashanzheng/OFL.txt'
+}
+def download(it):
+ name,url=it;p=dest/name
+ if not p.exists():
+  req=urllib.request.Request(url,headers={'User-Agent':'Codex-Presentation'})
+  with urllib.request.urlopen(req,timeout=90) as r:p.write_bytes(r.read())
+ return name,p.stat().st_size
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+ for result in pool.map(download,items.items()): print(result,flush=True)
+for family,weight in [('NotoSansSC',400),('NotoSansSC',700),('NotoSerifSC',600)]:
+ out=dest/(family+('-Bold' if weight==700 else '-SemiBold' if weight==600 else '-Regular')+'.ttf')
+ if not out.exists():
+  font=TTFont(dest/(family+'-Variable.ttf'))
+  instance=instantiateVariableFont(font,{'wght':weight},inplace=False,updateFontNames=True)
+  instance.save(out)
+fontdir=Path(os.environ['LOCALAPPDATA'])/'Microsoft'/'Windows'/'Fonts';fontdir.mkdir(parents=True,exist_ok=True)
+metadata=[]
+for file in dest.glob('*.ttf'):
+ if 'Variable' in file.name:continue
+ font=TTFont(file);family=font['name'].getDebugName(1);full=font['name'].getDebugName(4)
+ installed=fontdir/file.name;shutil.copy2(file,installed)
+ with winreg.CreateKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows NT\CurrentVersion\Fonts') as key:
+  winreg.SetValueEx(key,full+' (TrueType)',0,winreg.REG_SZ,str(installed))
+ ctypes.windll.gdi32.AddFontResourceExW(str(installed),0,0)
+ metadata.append({'file':file.name,'family':family,'full':full,'preferred_family':font['name'].getDebugName(16),'fsType':font['OS/2'].fsType,'installed':str(installed)})
+ctypes.windll.user32.PostMessageW(0xffff,0x001D,0,0)
+(dest/'字体来源与安装记录.json').write_text(json.dumps({'sources':items,'fonts':metadata},ensure_ascii=False,indent=2),encoding='utf8')
+print(json.dumps(metadata,ensure_ascii=False),flush=True)

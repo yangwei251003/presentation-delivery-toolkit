@@ -1,0 +1,175 @@
+from pathlib import Path
+import shutil,json,zipfile,hashlib
+W=Path(__file__).resolve().parent
+date='20261007'
+items=[('数瞰',W/'prd-digital-twin','数瞰-参赛完整包','dist'),('纸上有数',W/'纸上有数——剪纸结构与几何的交互实验工坊','纸上有数-参赛完整包','dist-v4')]
+for name,root,oldname,dist in items:
+    prior=root/'artifacts'/'competition-final-20261006'/oldname
+    out=root/'artifacts'/f'competition-submit-{date}'
+    pack=out/f'{name}-评委提交版'
+    if pack.exists():raise RuntimeError('New target already exists; inspect before retry')
+    pack.mkdir(parents=True)
+    runtime_dirs=[dist,'runtime','server','public','licenses'] if name=='数瞰' else [dist,'runtime','scripts','print-samples']
+    runtime_files=['启动数瞰.cmd','launch.mjs'] if name=='数瞰' else ['启动作品.cmd','启动备用端口.cmd','THIRD_PARTY_NOTICES.md']
+    for d in runtime_dirs:
+        if (prior/d).exists():shutil.copytree(prior/d,pack/d)
+    for f in runtime_files:shutil.copy2(prior/f,pack/f)
+    source=pack/'source-code';source.mkdir()
+    for d in ['src','public','server']:
+        if (prior/'source-code'/d).exists():shutil.copytree(prior/'source-code'/d,source/d)
+    for f in ['package.json','package-lock.json','tsconfig.json','vite.config.ts','index.html','.env.example']:
+        if (prior/'source-code'/f).exists():shutil.copy2(prior/'source-code'/f,source/f)
+    pkg=json.loads((source/'package.json').read_text(encoding='utf-8'))
+    pkg['scripts']={'dev':pkg['scripts']['dev'],'build':'tsc -b && vite build','typecheck':'tsc -b'}
+    (source/'package.json').write_text(json.dumps(pkg,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    (source/'源码说明.txt').write_text('本目录提供作品前端与服务源代码、依赖锁文件和资源。评委运行请使用上一级启动文件。源码重建：Node.js 24、npm ci、npm run build；构建输出位于本目录。第三方软件与字体许可证见作品附带的许可文件。\n',encoding='utf-8')
+    docs=pack/'作品资料';docs.mkdir()
+    shared_ai='''## 工具与流程
+
+使用OpenAI Codex辅助需求整理、技术方案比较、代码与交互文案、测试脚本、问题修正及工程整合。过程包括需求与方案选择、生成实现、依据实际数据与程序结果校核、迭代修改、构建与浏览器验证。运行时核心计算与本地功能不依赖生成式AI在线服务。
+
+AI辅助内容与第三方引擎、字体、音乐、地图及模型分别标识，第三方资产不作为本作品独立制作的内容。作品不宣称已开展真人学习效果实验或取得相应研究结果。
+'''
+    if name=='数瞰':
+        explanation='''# 数瞰——中国城市群数据探索平台
+
+版本0.3.5。面向城市数据阅读、比较与科普展示，以“定位城市—比较差异—回看历史—探索情景—核对来源”为主要交互路径。
+
+## 作品内容
+
+接入9个区域范围、41座去重城市；40座具备核验的2025年末常住人口。支持全国地图与省面探索、中文/拼音搜索、五类指标、最多三城对比、同年精选区域比较、有来源的历史记录、A/B增长情景、CSV导出、本地规则解读及引导路演。五处城市实景为西安大雁塔、合肥天鹅湖、上海陆家嘴、广州塔与花城广场、深圳福田，支持地标近景、日暮氛围、环境暂停和画质切换。
+
+## 技术与表达
+
+采用React、TypeScript、Vite、MapLibre、SVG、Three.js与3D Tiles Renderer；本机Node/Express提供API。版本化数据目录统一统计范围、年份、单位、来源和派生指标；信息架构、视觉编码、比较路径、引导与情景计算构成作品的交互设计。
+
+## 评审体验路线
+
+启动后可看字幕配乐介绍片，或直接进入全国地图。搜索深圳并查看指标及来源；比较广州、深圳、佛山；保存情景A并调整情景B、导出结果；进入上海实景切换地标与日暮；使用规则助手并核对来源。
+
+## 内容边界
+
+精选集合不代表全国全量覆盖；重叠范围不相加为全国合计。南昌缺失的同年人口保持暂缺。情景为假设条件下的计算而非官方预测。摄影、地表与概化街区注明来源，未知拍摄日期与示意高度如实标识；本作品不作为测绘或权属判断工具。
+'''
+        attribution='''# 素材来源与知识产权说明
+
+参赛方已确认作品使用的第三方素材均已获得作者或权利方授权，可用于本作品及参赛材料。
+
+|内容|来源及归属|
+|---|---|
+|经济、人口与历史统计|广东及各城市统计部门公报、年鉴；逐项出处、年度、修订与版本保留在作品来源界面和发布数据中|
+|西安、合肥摄影素材|Mars3D公开示例的数据提供方；来源见本地模型清单|
+|上海部分地标网格|高德官方地标示例；相关模型归原权利方|
+|地表影像|Esri及其所列数据提供方；作品保留署名|
+|全国交互矢量|天地图来源、GeoJSON.CN整理，保留坐标与来源说明|
+|行政边界、道路与建筑轮廓|OpenStreetMap contributors，ODbL 1.0；Natural Earth参考保留来源|
+|区域页头场景图|OpenAI内置图像生成工具，标记为AI场景示意，不作实景或统计证据|
+|介绍片|作品真实页面画面与字幕；配乐Horizons — Scott Buckley，CC BY 4.0，节选、调音量及淡入淡出|
+|字体与软件|Noto Sans SC（OFL）、React/Three.js等；完整许可随包保留|
+
+模型原始链接与加工性质见网站/models/manifest.json，统计原始链接在各记录sourceUrl字段及来源面板。配乐作者：https://www.scottbuckley.com.au/library/horizons/；许可：https://creativecommons.org/licenses/by/4.0/ 。素材授权不改变原作者署名与作品归属。
+'''
+        ai='# AI工具使用说明\n\n作品：数瞰——中国城市群数据探索平台。使用AI工具：是。\n\n'+shared_ai+'''
+## 具体应用
+
+Codex参与界面与服务实现、统计结构与来源组织、情景与比较逻辑、地标外观及环境效果、验证与说明材料。区域场景图由OpenAI内置图像生成工具生成，经单城主题与视觉风格选择后用于页头气氛；提示词、工具和图像清单位于source-code/public/scenes。图像不作为城市摄影或官方统计。
+
+设计迭代围绕同年同口径比较、缺失值显示、情景假设标识、原始出处核对和真实地点区分展开；界面与模型通过实测结果调整。采用的数据数值来自记录的统计来源，未来情景由明确公式计算。助手默认为本地规则模式，外部模型为可选配置。
+
+介绍片保留真实界面、字幕和署名配乐，不含原合成旁白。信息架构、交互叙事、视觉组织、数据口径与整体系统整合，与第三方基础资产及AI辅助过程分开说明。
+'''
+        run='''数瞰——评委运行说明
+
+Windows 10/11 64位，建议Chrome或Edge、1920×1080屏幕及支持WebGL2的显卡。
+1. 完整解压压缩包。
+2. 双击“启动数瞰.cmd”，等待浏览器自动打开。已附Node.js运行时及生产网页，无需安装开发依赖。
+3. 展示期间保留启动窗口，结束按Ctrl+C。默认8797；端口占用会自动选空闲端口，以窗口显示地址为准。
+
+本地统计、比较、情景、规则解读、导出和五处实景无需外网。天气、可选在线街道与来源网页需要网络；断网天气显示不可用。不要直接双击dist/index.html。
+作品说明、AI使用和素材归属见“作品资料”。“source-code”为源码；“runtime”和“licenses”保留运行环境及第三方许可。
+'''
+    else:
+        explanation='''# 纸上有数——剪纸结构与几何的交互实验工坊
+
+版本0.4.0。面向成年初学者、通识课程与手工社团，将剪纸中的对称、孔洞和连通转化为“先预测—折剪—展开—观察—修改—打印对照”的交互实验。
+
+## 作品内容
+
+提供2/4/8层固定折法、矩形/三角形/多边形剪口、展开观察、结构反馈、刀序回放与修改前后对照。包含13项课程与迁移实验、六步引导、七任务入门、五套主题、本地音乐、学习记录、作品备份、SVG/分享卡导出、实际尺寸打印纸样和工坊指南。
+
+## 技术与表达
+
+React/TypeScript/Vite组织界面，SVG统一毫米预览与打印，clipper2-ts承担几何布尔运算，Worker执行本地计算。系统检查剪口从纸边进入的条件、完整刀序和课程目标，并通过过程记录解释结构变化。
+
+## 评审体验路线
+
+启动后可跟随六步引导，或进入实验工坊。体验“留住这一线”的预测、分离、修复和前后对照；试用撤销、重做、JSON备份和SVG导出；打开灵感库的原创步骤；查看主题、音乐与介绍片；最后打开打印纸样。
+
+## 内容边界
+
+几何连通不等于材料强度，实际打印与剪切须按纸张和工具检验。浏览器存档位于当前电脑、浏览器与端口，JSON备份可迁移。真人教学通过有署名的官方引用访问；无网络时仍有五类原创文字步骤。当前提交作品只描述已经实现的功能。
+'''
+        attribution=(prior/'docs'/'参赛版素材来源.md').read_text(encoding='utf-8')
+        # Present current asset provenance only; omit developer-history and user-directed reminders.
+        attribution=attribution.split('本项目开发目录仍保存')[0]
+        attribution=attribution.replace('# 参赛版素材来源与AI说明','# 素材来源与知识产权说明').replace('2026-10-06。此表描述最终参赛包，不把开发版历史素材清单当作本包实际内容。','以下为当前提交作品的素材来源与使用方式。')
+        attribution=attribution.replace('本项目开发成果，Codex大量参与需求、代码、文案、测试与修复，人工决策记录另附。不能全部称为学生独立手写。','本项目开发成果；Codex参与需求、代码、文案、测试与修正，AI参与另作说明。')
+        ai='# AI工具使用说明\n\n作品：纸上有数——剪纸结构与几何的交互实验工坊。使用AI工具：是。\n\n'+shared_ai+'''
+## 具体应用与创作取舍
+
+Codex参与几何库适配、课程坐标与约束设计、界面组件、引导文案、程序化矢量装饰、合成音效、学习记录、保存导入与打印、测试及修正。核心几何使用已有开源内核，未将其声明为独立发明。
+
+创作选择纸艺工坊与实验面板的视觉形式，优先完整课程、几何反馈、可操作引导、主题与声音体验；装饰与目标标记不进入正式刀线，预览和打印保持统一毫米数据。课程解释强调预测与对照，连接判断保持几何含义，不用软件测试推导真人学习提升。
+
+真人教程采用官方引用及署名，本地原创步骤承担离线教学；介绍片画面来自本作品实际界面，字幕与CC BY 4.0配乐构成当前影片，不含合成旁白。信息架构、课程组织、交互反馈与系统整合，与第三方库和参考内容分别说明。
+'''
+        run='''纸上有数——评委运行说明
+
+Windows 10/11 64位，Chrome或Edge，建议1280×800及以上。
+1. 完整解压压缩包。
+2. 双击“启动作品.cmd”，等待服务就绪后浏览器打开http://127.0.0.1:5212。已附Node.js及生产网页，无需安装开发依赖。
+3. 展示期间保留启动窗口；结束关闭窗口或按Ctrl+C。5212占用时使用“启动备用端口.cmd”（5213），不会结束其他程序。
+
+折剪计算、课程、保存、导出、打印预览、字体、音乐和字幕介绍片无需外网；真人教程官方播放器需网络，离线可读原创文字步骤。不要直接双击dist-v4/index.html。
+打印选择A4、100%/实际大小，关闭页眉页脚，先测量100毫米标尺。存档跟随当前浏览器和端口，换端口或电脑请用项目JSON迁移。
+作品资料含作品说明、AI使用与素材归属；source-code为源码；print-samples为17组数字纸样。
+'''
+    (docs/'01-作品说明.md').write_text(explanation,encoding='utf-8')
+    (docs/'02-AI工具使用说明.md').write_text(ai,encoding='utf-8')
+    (docs/'03-素材来源与知识产权说明.md').write_text(attribution,encoding='utf-8')
+    (pack/'评委运行说明.txt').write_text(run,encoding='utf-8')
+    # A readable opening page is part of the work documentation, not a submission checklist.
+    import html
+    (docs/'作品说明.html').write_text('<!doctype html><meta charset="utf-8"><title>'+name+'作品说明</title><style>body{font-family:"Microsoft YaHei",sans-serif;max-width:900px;margin:48px auto;line-height:1.9;padding:0 24px;color:#22352c}pre{white-space:pre-wrap;font:inherit}a{color:#286348}h1{font-size:28px}</style><h1>'+html.escape(name)+'作品资料</h1><p><a href="02-AI工具使用说明.md">AI工具使用说明</a> · <a href="03-素材来源与知识产权说明.md">素材来源与知识产权说明</a></p><pre>'+html.escape(explanation.replace('# ',''))+'</pre>',encoding='utf-8')
+    extra=out/'待补充资料（不在压缩包内）'
+    for d in ['01-真实团队分工与AI人工审核记录','02-授权证明原件','03-其他作品附加资料','04-单独上传的承诺书截图视频或PPT']:(extra/d).mkdir(parents=True,exist_ok=True)
+    (extra/'01-真实团队分工与AI人工审核记录'/'填写模板.md').write_text('# 团队分工与AI人工审核记录\n\n|真实成员|实际负责内容|本人筛选、修改与核验AI输出的过程|对应成果/过程证据|\n|---|---|---|---|\n\n请按真实情况填写。完成后可将正式文件加入提交目录“作品资料”，重新打包；本模板不自动进入ZIP。\n',encoding='utf-8')
+    (out/'给你的材料核对说明.md').write_text(f'''# {name}提交版材料核对
+
+评委包只包含作品运行文件、必要许可证、源码、作品说明、AI使用与素材来源。报名填写指南、提醒、未完成清单、内部日志、旧验收报告、历史资料和研究文件均未纳入。
+
+已经准备：可运行作品本体、便携运行时、作品说明、AI工具说明、知识产权与来源说明；纸上有数还附当前17组数字纸样。截图与作品演示视频使用上一轮独立上传材料，不混入独立附件目录。
+
+可以补入：真实团队分工/本人审核AI输出的记录（填外部模板）；授权证明原件（已取得授权的事实按本次确认记录，证明文件仅在提供后才能附入）；学校/赛区额外要求的作品附加资料。目前没有这些原件，不造代签材料或虚构个人贡献。正式统一AI模板如有单独格式，以组委会模板承载同样真实内容。
+
+单独上传：系统生成并签署盖章的承诺书、作品截图、视频或PPT；它们不是本ZIP中缺失的运行资料。个人身份与学校信息在平台填报。
+
+补充目录在旁边“待补充资料（不在压缩包内）”。六折、看图还原挑战和教师打印包为后续规划，不影响当前作品核心功能，未追加开发。
+''',encoding='utf-8')
+    archive=out/(pack.name+'.zip')
+    entries=[]
+    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+        for p in sorted(pack.rglob('*')):
+            if p.is_file():
+                rel=p.relative_to(pack).as_posix()
+                if any(x in rel for x in ['verification/','node_modules/','.git/','test-results/']):raise RuntimeError('Internal entry')
+                z.write(p,p.relative_to(out).as_posix());entries.append({'file':rel,'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size})
+    with zipfile.ZipFile(archive) as z:
+        if z.testzip():raise RuntimeError('CRC failure')
+        extracted=out/'内部校验（不提交）';extracted.mkdir(exist_ok=True);z.extractall(extracted)
+    for r in entries:
+        p=extracted/pack.name/r['file']
+        if hashlib.sha256(p.read_bytes()).hexdigest()!=r['sha256']:raise RuntimeError('Hash mismatch')
+    info={'project':name,'archive':str(archive),'bytes':archive.stat().st_size,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'crc':'passed','extractedHashes':'passed','files':len(entries),'contentManifest':entries,'startup':'pending'}
+    (out/'内部校验记录.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps({k:v for k,v in info.items() if k!='contentManifest'},ensure_ascii=False))

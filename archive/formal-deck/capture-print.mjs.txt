@@ -1,0 +1,6 @@
+import {chromium} from '../prd-digital-twin/node_modules/playwright-core/index.mjs';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try{const page=await browser.newPage({viewport:{width:1000,height:1200},deviceScaleFactor:2});await page.goto(pathToFileURL(path.join(root,'../纸上有数——剪纸结构与几何的交互实验工坊/artifacts/competition-team-20261007/纸上有数-评委提交版/print-samples/flower.html')).href);await page.locator('.page').first().screenshot({path:path.join(root,'制作记录/paper-print.png')});}finally{await browser.close();}

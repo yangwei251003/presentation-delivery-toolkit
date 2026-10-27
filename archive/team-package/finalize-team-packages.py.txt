@@ -1,0 +1,33 @@
+from pathlib import Path
+import shutil,zipfile,json,hashlib
+W=Path(__file__).resolve().parent
+for name,folder,dist in [('数瞰','prd-digital-twin','dist'),('纸上有数','纸上有数——剪纸结构与几何的交互实验工坊','dist-v4')]:
+    out=W/folder/'artifacts/competition-team-20261007'
+    pack=out/f'{name}-评委提交版'
+    assert pack.is_dir() and (pack/dist/'index.html').is_file()
+    for rel in [f'source-code/{dist}','source-code/tsconfig.tsbuildinfo','team-build.log']:
+        target=(pack/rel).resolve()
+        assert target.is_relative_to(pack.resolve()) and target!=pack.resolve()
+        if target.is_dir():shutil.rmtree(target)
+        elif target.exists():target.unlink()
+    unwanted=[p for p in pack.rglob('*') if p.name in ['node_modules','.git','内部检查记录.json'] or p.suffix=='.log']
+    assert not unwanted,unwanted
+    zpath=out/f'{name}-评委提交版-团队信息已更新.zip'
+    with zipfile.ZipFile(zpath,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+        for p in sorted(pack.rglob('*')):
+            if p.is_file():z.write(p,p.relative_to(out))
+    extract=out/'内部校验（不提交）'
+    extract.mkdir(exist_ok=True)
+    with zipfile.ZipFile(zpath) as z:
+        assert z.testzip() is None
+        z.extractall(extract)
+        count=len(z.infolist())
+    info={'zip':zpath.name,'bytes':zpath.stat().st_size,'files':count,'sha256':hashlib.sha256(zpath.read_bytes()).hexdigest(),'crc':'passed','contents':'作品运行文件、源代码、运行说明、作品与团队资料、AI使用说明及许可；不含内部测试、个人提醒、答辩计划或提交截图'}
+    (out/'内部校验记录.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
+    shots=out/'作品截图-8张'
+    assert len(list(shots.glob('*.png')))==8
+    with zipfile.ZipFile(out/f'{name}-作品截图8张.zip','w',zipfile.ZIP_DEFLATED) as z:
+        for p in sorted(shots.glob('*.png')):z.write(p,p.name)
+    print(json.dumps({'project':name,'zipMB':round(info['bytes']/1024**2,1),'files':count,'crc':'passed'},ensure_ascii=False))
+source=(W/'verify-judge-packages-20261007.mjs').read_text(encoding='utf-8')
+(W/'verify-team-packages-20261007.mjs').write_text(source.replace('competition-submit-20261007','competition-team-20261007'),encoding='utf-8')

@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {PresentationFile,FileBlob} from 'file:///<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/@oai/artifact-tool/dist/artifact_tool.mjs';
+const root=path.dirname(fileURLToPath(import.meta.url));
+for(const [code,name] of [['S','数瞰'],['P','纸上有数']]){
+ const input=path.join(root,'提交文件',`${name}-竞赛答辩-正式版.pptx`);
+ const p=await PresentationFile.importPptx(await FileBlob.load(input));
+ const out=path.join(root,'制作记录',code,'最终文件渲染');await fs.mkdir(out,{recursive:true});
+ for(let i=0;i<p.slides.items.length;i++){
+  const blob=await p.export({slide:p.slides.items[i],format:'png',scale:1.5});
+  await fs.writeFile(path.join(out,`${String(i+1).padStart(2,'0')}.png`),new Uint8Array(await blob.arrayBuffer()));
+ }
+ console.log(`${name}: final PPTX imported and rendered ${p.slides.items.length} slides`);
+}

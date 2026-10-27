@@ -1,0 +1,143 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createRequire} from 'node:module';
+import {decks} from './content.mjs';
+const RUNTIME='<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies';
+const require=createRequire(import.meta.url);
+const sharp=require(RUNTIME+'/node/node_modules/sharp');
+const {GlobalFonts}=require(RUNTIME+'/node/node_modules/@napi-rs/canvas');
+const {Presentation,PresentationFile,FileBlob}=await import(pathToFileURL(RUNTIME+'/node/node_modules/@oai/artifact-tool/dist/artifact_tool.mjs'));
+const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),W=path.dirname(ROOT),BUILD=path.join(ROOT,'制作记录'),OUT=path.join(ROOT,'提交文件');
+const SKILL='<LOCAL_USER_HOME>/.codex/plugins/cache/openai-primary-runtime/presentations/26.904.11930/skills/presentations';
+process.env.RUNTIME_NODE_MODULES=RUNTIME+'/node/node_modules';
+const {finalizePresentation}=await import(pathToFileURL(SKILL+'/container_tools/artifact_tool_utils.mjs'));
+const FONT='Noto Sans SC',SERIF='Noto Serif SC',KAI='LXGW WenKai',ART='Ma Shan Zheng';
+for(const [file,alias] of [['NotoSansSC-Regular.ttf',FONT],['NotoSansSC-Bold.ttf',FONT],['NotoSerifSC-SemiBold.ttf',SERIF],['LXGWWenKai-Regular.ttf',KAI],['MaShanZheng-Regular.ttf',ART]]){
+ if(!GlobalFonts.registerFromPath(path.join(ROOT,'字体与许可',file),alias))throw new Error('Font registration failed: '+file);
+}
+console.log('Registered fonts: '+[FONT,SERIF,KAI,ART].map(x=>x+':'+GlobalFonts.has(x)).join(', '));
+const source=JSON.parse(await fs.readFile(path.join(W,'答辩PPT审查方案-20261007/逐页方案与素材清单.json'),'utf8'));
+const art=id=>path.join(W,'答辩PPT审查方案-20261007',source.assets.find(a=>a.id===id).file);
+const pos=(left,top,width,height)=>({left,top,width,height});
+const repairPath=path.join(BUILD,'wrap-repairs.json');
+const wrapRepairs=new Map(JSON.parse(await fs.readFile(repairPath,'utf8').catch(()=>'[]')));
+for(const code of ['S','P']){
+ for(const file of (await fs.readdir(path.join(BUILD,code))).filter(x=>x.endsWith('.layout.json'))){
+  const layout=JSON.parse(await fs.readFile(path.join(BUILD,code,file),'utf8'));
+  for(const e of layout.elements??[]){
+   if(!e.text)continue;
+   if(e.text.includes('\n')){wrapRepairs.set(e.text.replace(/\n/g,'')+'|'+e.bbox[2],e.text);continue;}
+   const lines=(e.textLayout?.lines??[]).map(x=>x.text);
+   if(lines.length<2||lines.join('')!==e.text)continue;
+   let changed=false;
+   for(let j=1;j<lines.length;j++)if(/^[。，、：；！？）”’]/u.test(lines[j])){
+    const prev=Array.from(lines[j-1]);lines[j]=prev.splice(-2).join('')+lines[j];lines[j-1]=prev.join('');changed=true;
+   }
+   const last=lines.length-1;
+   if(Array.from(lines[last]).length<4){const prev=Array.from(lines[last-1]);const take=Math.min(6-Array.from(lines[last]).length,Math.max(0,prev.length-3));lines[last]=prev.splice(-take).join('')+lines[last];lines[last-1]=prev.join('');changed=true;}
+   if(changed)wrapRepairs.set(e.text+'|'+e.bbox[2],lines.join('\n'));
+  }
+ }
+}
+await fs.writeFile(repairPath,JSON.stringify([...wrapRepairs],null,2));
+console.log('Intentional Chinese line-break repairs: '+wrapRepairs.size);
+function text(s,str,x,y,w,h,size=25,color='#15392C',font=FONT,bold=false,align='left'){
+ const a=s.shapes.add({geometry:'textbox',name:str.slice(0,36),position:pos(x,y,w,h),fill:'none',line:{fill:'none',width:0}});
+ a.text=wrapRepairs.get(str+'|'+w)??str;a.text.style={typeface:font,fontSize:size,bold,color,alignment:align,verticalAlignment:'top',autoFit:'none',wrap:'square',insets:{left:0,right:0,top:0,bottom:0},lineSpacing:1.16};return a;
+}
+function line(s,x,y,w,color){s.shapes.add({geometry:'line',position:pos(x,y,w,0),fill:'none',line:{fill:color,width:1}});}
+const cache=new Map();
+async function image(s,file,x,y,w,h,crop=null,fit='contain'){
+ const key=file+JSON.stringify(crop);let b=cache.get(key);
+ if(!b){b=await fs.readFile(file);if(crop){const {width:iw,height:ih}=await sharp(b).metadata();b=await sharp(b).extract({left:Math.round(iw*crop.left),top:Math.round(ih*crop.top),width:Math.floor(iw*(1-crop.left-crop.right)),height:Math.floor(ih*(1-crop.top-crop.bottom))}).png().toBuffer();}cache.set(key,b);}
+ s.images.add({blob:new Uint8Array(b),contentType:'image/png',alt:path.basename(file),position:pos(x,y,w,h),fit});
+}
+function table(s,values,t,widths){
+ const a=s.tables.add({rows:values.length,columns:values[0].length,left:64,top:215,width:1152,height:354,columnWidths:widths,values});
+ a.borders.assign({fill:t.rule,width:1,style:'solid'});
+ for(let r=0;r<values.length;r++)for(let c=0;c<values[0].length;c++){
+  const v=a.getCell(r,c);v.fill=r===0?t.ink:t.bg;v.text.style={typeface:FONT,fontSize:r===0?26:24,bold:r===0,color:r===0?t.bg:t.ink,verticalAlignment:'middle',autoFit:'none',insets:{left:17,right:17,top:12,bottom:12},lineSpacing:1.15};
+ }return a;
+}
+function caption(s,d,t){line(s,64,646,1152,t.rule);text(s,d.take,64,661,1152,54,21,t.muted,KAI);}
+function rows(s,blocks,t,{x=64,y=231,w=1152,gap=123,labelWidth=305,bodyX=404,bodyW=812}={}){
+ blocks.forEach(([head,body],i)=>{const sy=y+i*gap;text(s,head,x,sy,labelWidth,78,29,t.ink,SERIF);text(s,body,bodyX,sy+2,bodyW,101,25,t.muted);if(i<blocks.length-1)line(s,x,sy+gap-20,w,t.rule);});
+}
+function evidenceRows(s,blocks,t){blocks.forEach(([head,body],i)=>{const y=209+i*145;text(s,head,719,y,496,37,28,t.ink,SERIF);text(s,body,719,y+42,496,102,24,t.muted);});}
+function base(s,d,t,num,code){s.background.fill=t.bg;text(s,d.title,64,44,1152,100,41,t.ink,SERIF);if(d.lead)text(s,d.lead,66,151,1146,65,25,t.muted);text(s,`${decks[code].name}   ${String(num).padStart(2,'0')}`,1025,18,190,22,15,t.muted,FONT,false,'right');}
+async function make(code){
+ const d=decks[code],isS=code==='S',t=isS?{bg:'#F5F3EB',ink:'#15392C',muted:'#526B5E',accent:'#988645',rule:'#C5CEC0'}:{bg:'#FAF6ED',ink:'#493C31',muted:'#79695B',accent:'#B22A21',rule:'#D6C3AF'};
+ const folder=source.projects[isS?0:1].folder,shots=path.join(W,folder,'artifacts/competition-team-20261007/作品截图-8张');
+ const filenames=(await fs.readdir(shots)).filter(x=>x.endsWith('.png')).sort();
+ const shot=n=>path.join(shots,filenames[n-1]);
+ const pres=Presentation.create({slideSize:{width:1280,height:720}});
+ const noteText=[];
+ for(let i=0;i<d.slides.length;i++){
+  const v=d.slides[i],s=pres.slides.add();const c=isS?'#F6F1D6':t.ink;
+  if(v.type==='cover'){
+   await image(s,art(code+'01'),0,0,1280,720,null,'cover');
+   text(s,'全国大学生数字媒体科技作品及创意竞赛',65,54,760,35,22,isS?'#C6B97C':t.accent);
+   text(s,d.name,60,167,700,145,isS?114:104,c,ART);
+   text(s,d.subtitle,66,320,710,95,34,c,SERIF);
+   text(s,isS?'帮助学习者认识城市、比较差异，\n并说明判断的依据':'让学习者在剪纸操作中理解对称，\n观察连接，保留自己的探索',66,432,740,95,29,c,KAI);
+   text(s,'广州科技职业技术大学',66,556,800,38,25,c,FONT,true);
+   text(s,'杨炜晨、示例成员1、示例成员2、示例成员3、示例成员4',66,606,840,32,22,c);
+   text(s,'指导教师：示例成员5、示例成员6',66,651,840,31,22,c);
+  }else if(v.type==='chapter'){
+   await image(s,art(v.art),0,0,1280,720,null,'cover');
+   text(s,v.num,65,88,310,94,77,isS?'#C6B97C':t.accent,SERIF);
+   const head=code==='S'&&v.num==='03'?'这些功能怎样\n服务真实任务':code==='P'&&v.num==='01'?'谁需要一间\n剪纸实验工坊':code==='P'&&v.num==='03'?'工坊可以怎样\n帮助学习与创作':v.title;
+   text(s,head,65,247,780,176,53,c,ART);
+   text(s,v.sub,68,457,650,105,29,c,KAI);
+  }else if(v.type==='closing'){
+   await image(s,art(v.art),0,0,1280,720,null,'cover');text(s,v.title,65,67,1000,100,74,c,ART);
+   text(s,isS?'让想认识城市的人，\n有方法开始，有依据表达':'让每一次剪与展，\n都成为理解图形的机会',65,221,900,147,46,c,SERIF);
+   text(s,v.summary,67,400,740,126,29,c,KAI);
+   text(s,'感谢聆听，欢迎交流与体验',67,557,1040,50,31,c);
+   text(s,'广州科技职业技术大学  ·  指导教师：示例成员5、示例成员6',67,632,1090,30,21,c);
+   text(s,'杨炜晨、示例成员1、示例成员2、示例成员3、示例成员4',67,673,1090,28,20,c);
+  }else{
+   base(s,v,t,i+1,code);
+   if(v.type==='agenda'){
+    v.items.forEach(([n,title,body],j)=>{const y=199+j*142;text(s,n,64,y,130,90,61,t.accent,SERIF);text(s,title,228,y,900,50,34,t.ink,SERIF);text(s,body,230,y+62,930,65,26,t.muted);if(j<2)line(s,229,y+122,981,t.rule);});
+   }else if(['audience','validation'].includes(v.type)){
+    table(s,v.table,t,v.type==='audience'?[244,365,543]:[290,862]);caption(s,v,t);
+   }else if(['evidence','caseart','intro'].includes(v.type)){
+    let file;if(v.shot)file=shot(v.shot);if(v.special)file=path.join(W,'正式答辩PPT-20261007/制作记录',v.special==='scenario'?'scenario-panel.png':'paper-print.png');
+    if(v.art)file=art(v.art);if(v.localArt)file=path.join(ROOT,'配图',v.localArt);
+    await image(s,file,64,224,609,377,v.crop??null,['intro','caseart'].includes(v.type)?'cover':'contain');
+    text(s,v.special==='paper'?'作品导出的数字纸样':v.type==='evidence'?'作品实际运行画面':v.type==='caseart'?'使用情境概念插画':'作品概念插画',65,612,610,25,16,t.muted);
+    evidenceRows(s,v.blocks,t);caption(s,v,t);
+   }else if(['path','case'].includes(v.type)){
+    v.steps.forEach(([head,body],j)=>{const y=224+j*95;text(s,String(j+1).padStart(2,'0'),65,y,85,60,43,t.accent,SERIF);text(s,head,176,y,315,68,28,t.ink,SERIF);text(s,body,525,y+1,690,81,25,t.muted);if(j<3)line(s,177,y+78,1036,t.rule);});caption(s,v,t);
+   }else{
+    rows(s,v.blocks,t);caption(s,v,t);
+   }
+  }
+  const body=(v.blocks??v.steps??v.items??v.table??[]).map(x=>x.join('：')).join('\n\n');
+  let narration=[v.title,v.lead??v.sub??d.tag,body,v.take??v.summary??''].filter(Boolean).join('\n\n');
+  const refs=[`作品版本：${isS?'数瞰0.3.5':'纸上有数0.4.0'}，功能描述依据本地发布程序和运行检查。`];
+  if(v.shot)refs.push('功能图片：作品实际运行截图 '+filenames[v.shot-1]+'。');
+  if(v.art||v.localArt||['cover','chapter','closing'].includes(v.type))refs.push('概念插画：本会话通过OpenAI imagegen生成，不作为实际用户活动、实物或测试结果的证明。');
+  if(isS&&[10,11].includes(i))refs.push('统计数据：作品来源目录保留每项原始sourceUrl、年份与口径，请按来源记录核对。');
+  if(isS&&i===13)refs.push('天气来源：https://open-meteo.com/，数值预报，截图保留当时状态。');
+  if(isS&&i===12)refs.push('场景资产来源及授权：作品public/models/manifest.json和随包许可记录。');
+  if(i===22)refs.push('验证依据：项目测试记录及competition-team-20261007发布检查，仅对应已检查的功能和环境。');
+  s.speakerNotes.textFrame.setText(narration+'\n\n资料依据：\n'+refs.join('\n'));
+  noteText.push(`## ${String(i+1).padStart(2,'0')} ${v.title}\n\n${narration}`);
+ }
+ const work=path.join(BUILD,code);await fs.mkdir(path.join(work,'预览'),{recursive:true});
+ const candidate=path.join(work,'candidate.pptx');await(await PresentationFile.exportPptx(pres)).save(candidate);
+ for(let i=0;i<pres.slides.items.length;i++){
+  const slide=pres.slides.items[i],im=await pres.export({slide,format:'png',scale:1.5});await fs.writeFile(path.join(work,'预览',String(i+1).padStart(2,'0')+'.png'),new Uint8Array(await im.arrayBuffer()));
+  const lay=await slide.export({format:'layout'});await fs.writeFile(path.join(work,String(i+1).padStart(2,'0')+'.layout.json'),await lay.text());console.log(d.name+' draft render '+(i+1)+'/24');
+ }
+ const revision=process.env.DECK_REVISION??'v1';const final=path.join(OUT,`${d.name}-服务价值重构版-${revision}.pptx`);
+ const result=await finalizePresentation({workspaceDir:ROOT,candidatePath:candidate,finalPath:final,pythonExecutable:RUNTIME+'/python/python.exe',integrityValidatorPath:SKILL+'/container_tools/inspect_presentation_package_integrity.py',layoutValidatorPath:SKILL+'/container_tools/inspect_presentation_layout_geometry.py',explicitTotalSlideCount:24,requiredNativeTableOwnerSlides:[6,23],requiredNativeChartOwnerSlides:[],fontPolicy:{basis:'design',families:[FONT,SERIF,KAI,ART]},layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit','--require-native-table-slide','6','--require-native-table-slide','23'],verifyArtifactToolImport:true,receiptPath:path.join(work,`validation-${revision}.json`)});
+ console.log(d.name+' finalized '+JSON.stringify(result));
+ await fs.writeFile(path.join(ROOT,d.name+'-新版大纲与逐页讲稿.md'),'# '+d.name+'：服务价值重构版（24页）\n\n'+noteText.join('\n\n'));
+ const imported=await PresentationFile.importPptx(await FileBlob.load(final));await fs.mkdir(path.join(work,'最终文件渲染'),{recursive:true});
+ for(let i=0;i<imported.slides.items.length;i++){const im=await imported.export({slide:imported.slides.items[i],format:'png',scale:1.5});await fs.writeFile(path.join(work,'最终文件渲染',String(i+1).padStart(2,'0')+'.png'),new Uint8Array(await im.arrayBuffer()));console.log(d.name+' final render '+(i+1)+'/24');}
+}
+for(const code of process.argv[2]?[process.argv[2]]:['S','P'])await make(code);

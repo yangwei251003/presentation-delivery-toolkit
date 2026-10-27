@@ -1,0 +1,40 @@
+from pathlib import Path
+import base64, json, zipfile, hashlib, re
+import xml.etree.ElementTree as ET
+import fitz
+from PIL import Image, ImageChops, ImageStat
+
+root=Path(__file__).resolve().parent
+out=root/'提交文件'
+report={}
+sections=[]
+for code,name in [('S','数瞰'),('P','纸上有数')]:
+    ppt=out/f'{name}-竞赛答辩-正式版.pptx'
+    with zipfile.ZipFile(ppt) as z:
+        assert z.testzip() is None
+        slides=[n for n in z.namelist() if re.fullmatch(r'ppt/slides/slide\d+\.xml',n)]
+        notes=[n for n in z.namelist() if re.fullmatch(r'ppt/notesSlides/notesSlide\d+\.xml',n)]
+        assert len(slides)==len(notes)==20
+        text=''.join(ET.fromstring(z.read(n)).itertext() for n in []) if False else '\n'.join(''.join(ET.fromstring(z.read(n)).itertext()) for n in slides)
+        for fact in ['广州科技职业技术大学','示例成员5','示例成员6','杨炜晨','示例成员1','示例成员2','示例成员3','示例成员4','目录','感谢聆听']:
+            assert fact in text, (name,fact)
+    doc=fitz.open()
+    figures=[]
+    diffs=[]
+    for i in range(1,21):
+        image=root/'制作记录'/code/'最终文件渲染'/f'{i:02}.png'
+        assert image.is_file()
+        page=doc.new_page(width=960,height=540)
+        page.insert_image(page.rect,filename=str(image))
+        figures.append(f'<figure><img loading="lazy" alt="{name}第{i}页" src="data:image/png;base64,{base64.b64encode(image.read_bytes()).decode()}"><figcaption>{name} · {i:02} / 20</figcaption></figure>')
+        a=Image.open(root/'制作记录'/code/'预览'/f'{i:02}.png').convert('RGB')
+        b=Image.open(image).convert('RGB')
+        diffs.append({'slide':i,'mean_pixel_difference':sum(ImageStat.Stat(ImageChops.difference(a,b)).mean)/3})
+    doc.save(root/f'{name}-全页预览.pdf',deflate=True)
+    doc.close()
+    sections.append(f'<section id="{code}"><h2>{name} · 20 页</h2>'+''.join(figures)+'</section>')
+    report[name]={'slides':20,'notes':20,'size_bytes':ppt.stat().st_size,'sha256':hashlib.sha256(ppt.read_bytes()).hexdigest(),'zip_crc':'pass','team_identity':'pass','final_render_slide_count':20,'render_differences':diffs,'native_powerpoint_tested':False}
+html='''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双项目正式答辩 PPT 预览</title><style>body{margin:0;background:#ecebe5;color:#19372c;font-family:"Microsoft YaHei",sans-serif}header{padding:40px 6vw 25px;background:#15392c;color:#f7f3e7}h1{font-size:32px;margin:0 0 15px}header p{line-height:1.9;max-width:950px}nav{position:sticky;top:0;background:#fffdf8;padding:16px 6vw;z-index:5;border-bottom:1px solid #ccc}a{color:#254d3b;margin-right:28px}section{padding:10px 3vw 40px;max-width:1500px;margin:auto}h2{font-size:28px;margin:32px 0}figure{margin:26px 0 45px}img{display:block;width:100%;height:auto;background:#fff;box-shadow:0 8px 28px #0002}figcaption{padding:12px;text-align:right;color:#5d695f}footer{padding:28px 6vw;background:#fffdf8;font-size:14px}</style><header><h1>双项目正式答辩 PPT</h1><p>每套 20 页，含封面、目录、三处章节过渡、功能展示、技术实现、验证、团队与结尾。此页面由最终 PPTX 重新导入后逐页渲染，供完整审查；正式提交请上传“提交文件”中的对应 PPTX。</p></header><nav><a href="#S">数瞰</a><a href="#P">纸上有数</a></nav>'''+''.join(sections)+'''<footer>每套 PPT 均附演讲者备注，另有逐页讲稿。概念配图用于视觉表达；功能证据来自作品真实运行画面。</footer></html>'''
+(root/'双项目正式PPT全页预览.html').write_text(html,encoding='utf-8')
+(root/'制作记录'/'交付核对.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+print(json.dumps(report,ensure_ascii=False,indent=2))

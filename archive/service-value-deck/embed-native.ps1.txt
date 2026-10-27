@@ -1,0 +1,45 @@
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent $PSScriptRoot
+$out = Join-Path $root '提交文件'
+$work = Join-Path $PSScriptRoot '字体嵌入核对'
+New-Item -ItemType Directory -Path $work -Force | Out-Null
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class DeckFontLoader { [DllImport("gdi32.dll", CharSet=CharSet.Unicode)] public static extern int AddFontResourceEx(string file, uint flags, IntPtr reserved); }'
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $root '字体与许可') -Filter '*.ttf') {
+    if ($file.Name -notlike '*Variable*') {
+        $loaded = [DeckFontLoader]::AddFontResourceEx($file.FullName, 0, [IntPtr]::Zero)
+        Write-Output ($file.Name + ': loaded ' + $loaded)
+    }
+}
+$app = New-Object -ComObject PowerPoint.Application
+$report = @()
+try {
+    foreach ($name in @('数瞰','纸上有数')) {
+        $src = Join-Path $out ($name + '-答辩PPT-服务价值版.pptx')
+        $dst = Join-Path $out ($name + '-答辩PPT-字体完整嵌入版.pptx')
+        if (Test-Path -LiteralPath $dst) { throw "Output already exists: $dst" }
+        $deck = $app.Presentations.Open($src, -1, 0, 0)
+        try {
+            $before = Join-Path $work ($name + '-嵌入前')
+            New-Item -ItemType Directory -Path $before -Force | Out-Null
+            $deck.Export($before, 'PNG', 1280, 720)
+            $deck.SaveCopyAs($dst, 24, -1)
+        } finally { $deck.Close() }
+        $check = $app.Presentations.Open($dst, -1, 0, 0)
+        try {
+            $fonts = @()
+            for ($i=1; $i -le $check.Fonts.Count; $i++) {
+                $font = $check.Fonts.Item($i)
+                $fonts += [pscustomobject]@{name=$font.Name; embedded=[int]$font.Embedded; embeddable=[int]$font.Embeddable}
+            }
+            $after = Join-Path $work ($name + '-嵌入后')
+            New-Item -ItemType Directory -Path $after -Force | Out-Null
+            $check.Export($after, 'PNG', 1280, 720)
+            $report += [pscustomobject]@{project=$name; path=$dst; slides=$check.Slides.Count; version=$app.Version; fonts=$fonts}
+        } finally { $check.Close() }
+    }
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $work 'PowerPoint字体嵌入验证.json') -Encoding utf8
+    $report | ConvertTo-Json -Depth 8
+} finally {
+    if ($app.Presentations.Count -eq 0) { $app.Quit() }
+    [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app)
+}

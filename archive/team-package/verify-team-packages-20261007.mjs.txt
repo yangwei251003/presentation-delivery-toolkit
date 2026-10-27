@@ -1,0 +1,41 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawn} from 'node:child_process';
+import {createServer} from 'node:net';
+import assert from 'node:assert/strict';
+import {chromium} from './prd-digital-twin/node_modules/playwright-core/index.mjs';
+const base=fileURLToPath(new URL('./',import.meta.url));
+for(const [name,folder,packName] of [['数瞰','prd-digital-twin','数瞰-评委提交版'],['纸上有数','纸上有数——剪纸结构与几何的交互实验工坊','纸上有数-评委提交版']]){
+ const out=path.join(base,folder,'artifacts/competition-team-20261007');
+ const pack=path.join(out,'内部校验（不提交）',packName);
+ const info=JSON.parse(await fs.readFile(path.join(out,'内部校验记录.json'),'utf8'));
+ let child,browser;
+ try{
+  const guard=await new Promise(resolve=>{const s=createServer();s.listen(0,'127.0.0.1',()=>resolve(s));});
+  const port=guard.address().port;await new Promise(resolve=>guard.close(resolve));
+  const env={...process.env,SHUKAN_PORT:String(port),PAPER_PORT:String(port),PAPER_DIST:'dist-v4',PAPER_OPEN_BROWSER:'0'};
+  child=spawn(path.join(pack,'runtime/node.exe'),name==='数瞰'?[path.join(pack,'launch.mjs'),'--no-browser']:[path.join(pack,'scripts/serve.mjs')],{cwd:out,env,windowsHide:true,stdio:'ignore'});
+  const origin='http://127.0.0.1:'+port;
+  for(let i=0;i<50;i++){try{if((await fetch(origin,{signal:AbortSignal.timeout(1000)})).ok)break;}catch{}await new Promise(r=>setTimeout(r,200));}
+  assert.ok((await fetch(origin)).ok);
+  browser=await chromium.launch({channel:'msedge',headless:true});
+  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+  const logs=[],outside=[];await context.route('**/*',r=>{if(new URL(r.request().url()).origin===origin)return r.continue();outside.push(r.request().url());return r.abort();});
+  const page=await context.newPage();page.on('pageerror',e=>logs.push(e.message));
+  if(name==='数瞰'){
+   await context.addInitScript(()=>{localStorage.setItem('shukan.intro.v1','seen');localStorage.setItem('shukan.onboarding.v3',JSON.stringify({dismissed:true,completed:true}));});
+   await page.goto(origin);const search=page.getByRole('combobox',{name:'搜索已接入城市'});await search.fill('深圳');await page.getByRole('option').first().click();await page.getByRole('combobox',{name:'选择地区'}).waitFor();assert.match(page.url(),/overview\/440300/);
+   await page.goto(origin+'/#/yangtze/real3d/310000');await page.waitForFunction(()=>document.querySelector('.real-world-canvas')?.getAttribute('data-model-state')==='ready',null,{timeout:90000});
+   info.core='全国入口、深圳检索与统计、上海本地模型实际加载通过';
+  }else{
+   await page.goto(origin);await page.getByRole('button',{name:'直接进入，不再提示',exact:true}).click();await page.getByText('已自动保存',{exact:true}).waitFor();await page.waitForFunction(()=>!/(正在计算|等待计算)/.test(document.querySelector('[data-testid="geometry-status"]')?.textContent||''));
+   await page.getByRole('button',{name:'导出',exact:true}).click();info.core='工坊首屏、本地计算Worker、自动保存与导出入口通过';
+  }
+  const media=name==='数瞰'?'/media/shukan-tour.mp4':'/videos/workshop-intro.mp4';const response=await fetch(origin+media,{headers:{Range:'bytes=0-127'}});assert.equal(response.status,206);assert.equal((await response.arrayBuffer()).byteLength,128);
+  assert.deepEqual(logs,[]);assert.deepEqual(outside,[]);
+  await page.screenshot({path:path.join(out,'内部校验（不提交）/启动检查.png')});
+  info.startup='passed';info.mediaRange=206;info.pageErrors=logs;info.externalRequests=outside;
+ }catch(e){info.startup='failed';info.error=String(e);process.exitCode=1;}
+ finally{await browser?.close();child?.kill();await fs.writeFile(path.join(out,'内部校验记录.json'),JSON.stringify(info,null,2));console.log(JSON.stringify({project:name,startup:info.startup,core:info.core,error:info.error}));}
+}

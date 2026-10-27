@@ -1,0 +1,175 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createRequire} from 'node:module';
+const sharp=createRequire(import.meta.url)('<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/sharp');
+import {Presentation,PresentationFile} from 'file:///<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/@oai/artifact-tool/dist/artifact_tool.mjs';
+const ROOT=path.dirname(fileURLToPath(import.meta.url));
+const W=path.dirname(ROOT), BUILD=path.join(ROOT,'制作记录'), OUT=path.join(ROOT,'提交文件');
+const SKILL='<LOCAL_USER_HOME>/.codex/plugins/cache/openai-primary-runtime/presentations/26.904.11930/skills/presentations';
+const PY='<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe';
+process.env.RUNTIME_NODE_MODULES='<LOCAL_USER_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
+const {finalizePresentation}=await import(pathToFileURL(path.join(SKILL,'container_tools/artifact_tool_utils.mjs')));
+await fs.mkdir(OUT,{recursive:true});await fs.mkdir(BUILD,{recursive:true});
+const source=JSON.parse(await fs.readFile(path.join(W,'答辩PPT审查方案-20261007/逐页方案与素材清单.json'),'utf8'));
+const FONT='Microsoft YaHei', SERIF='Noto Serif SC';
+const blobs=new Map();
+async function bytes(p){if(!blobs.has(p))blobs.set(p,new Uint8Array(await fs.readFile(p)));return blobs.get(p);}
+const art=id=>path.join(W,'答辩PPT审查方案-20261007',source.assets.find(a=>a.id===id).file);
+function pos(x,y,w,h){return {left:x,top:y,width:w,height:h};}
+function txt(s,str,x,y,w,h,size=28,color='#203D32',bold=false,font=FONT,align='left'){
+ const a=s.shapes.add({geometry:'textbox',name:str.slice(0,28),position:pos(x,y,w,h),fill:'none',line:{fill:'none',width:0}});
+ a.text=str;a.text.style={typeface:font,fontSize:size,bold,color,alignment:align,verticalAlignment:'top',autoFit:'none',wrap:'square',insets:{left:0,right:0,top:0,bottom:0},lineSpacing:1.12};return a;
+}
+function line(s,x,y,w,color){return s.shapes.add({geometry:'line',position:pos(x,y,w,0),fill:'none',line:{fill:color,width:1}});}
+function box(s,x,y,w,h,fill){return s.shapes.add({geometry:'rect',position:pos(x,y,w,h),fill,line:{fill:'none',width:0}});}
+async function image(s,p,x,y,w,h,crop=null,fit='contain'){
+ let data=await bytes(p);
+ if(crop){const b=Buffer.from(data),iw=b.readUInt32BE(16),ih=b.readUInt32BE(20);data=new Uint8Array(await sharp(b).extract({left:Math.round(iw*crop.left),top:Math.round(ih*crop.top),width:Math.floor(iw*(1-crop.left-crop.right)),height:Math.floor(ih*(1-crop.top-crop.bottom))}).png().toBuffer());}
+ return s.images.add({blob:data,contentType:'image/png',alt:path.basename(p,'.png')+(crop?'（原始画面局部）':''),fit,position:pos(x,y,w,h)});
+}
+function header(s,title,t,n,section){s.background.fill=t.bg;txt(s,title,64,49,1148,105,43,t.ink,true,SERIF);txt(s,section,66,18,800,22,15,t.muted);txt(s,String(n).padStart(2,'0'),1160,677,58,24,18,t.muted,false,FONT,'right');}
+function footer(s,str,t){txt(s,str,65,675,1082,32,17,t.muted);}
+function bodyRows(s,items,x,y,w,t,step=100){items.forEach(([h,b],i)=>{txt(s,h,x,y+i*step,w,39,29,t.ink,true);txt(s,b,x,y+43+i*step,w,65,24,t.muted);});}
+function notes(s,narration,citations=[]){s.speakerNotes.textFrame.setText(narration+'\n\n资料与图像来源：\n'+citations.join('\n'));}
+function diagram(s,nodes,x,y,w,h,t){
+ const gap=34,each=(w-gap*(nodes.length-1))/nodes.length;
+ const shapes=nodes.map((v,i)=>{const b=box(s,x+i*(each+gap),y,each,h,t.soft);txt(s,v[0],x+i*(each+gap)+20,y+22,each-40,45,27,t.ink,true);txt(s,v[1],x+i*(each+gap)+20,y+78,each-40,h-85,23,t.muted);return b;});
+ for(let i=0;i<shapes.length-1;i++)s.shapes.connect(shapes[i+1],shapes[i],{kind:'straight',fromSide:'left',toSide:'right',line:{fill:t.accent,width:2},head:{type:'arrow',width:'med',length:'med'}});
+}
+function table(s,values,x,y,width,height,t,widths){
+ const a=s.tables.add({rows:values.length,columns:values[0].length,left:x,top:y,width,height,columnWidths:widths,values});
+ a.borders.assign({fill:t.rule,width:1,style:'solid'});
+ for(let r=0;r<values.length;r++)for(let c=0;c<values[0].length;c++){
+  const cell=a.getCell(r,c);cell.fill=r===0?t.ink:t.bg;cell.text.style={typeface:FONT,fontSize:r===0?25:24,bold:r===0,color:r===0?t.bg:t.ink,verticalAlignment:'middle',autoFit:'none',insets:{left:16,right:16,top:12,bottom:10}};
+ }
+ return a;
+}
+const narratives={
+ S:[
+ '各位评委老师好，我们的作品是数瞰——中国城市群数据探索平台。作品围绕城市数据的定位、比较、情景探索和来源核对，让数据阅读形成一条连续的操作路径。',
+ '本次介绍分三部分：首先说明为什么做；随后通过实际功能展示用户如何探索；最后介绍实现、验证、团队分工和应用方向。',
+ '城市数据很多，但找到、比较并读懂它们，仍需要清楚的口径和操作路径。数瞰从这个问题出发。',
+ '一次普通的城市比较，往往涉及寻找城市、核对年份和单位、判断结果是统计记录还是假设计算。我们将这几步放进同一个阅读过程，减少在不同资料之间反复切换。',
+ '当前版本接入九个区域范围、四十一座去重城市。作品围绕精选城市集合展开，集合不等于全国全量，重叠区域也不直接相加。地图、统计和空间场景共同服务城市认识。',
+ '数据展示以前置口径为基础。记录保留年份、单位、统计范围和出处；同年人口已有四十座城市核验。南昌的同年人口保持暂缺，参考年份单独标识，避免不同年份混入同年比较。',
+ '接下来通过定位、对比、情景、天气和实景，展示数瞰的主要体验。所有功能画面来自实际运行的作品。',
+ '用户可以通过全国入口或中文、拼音搜索定位城市。这里以深圳为例，定位后进入统一的指标视图，并保留来源说明入口。',
+ '三城对比将同一视角下的经济与产业指标并列呈现。图中的广州、深圳、佛山展示了实际操作结果。用户可以观察差异，再返回来源核对指标含义和统计口径。',
+ '情景推演允许先保存一组参数为情景A，再调整为情景B，比较参数变化下的路径。它是明确假设与公式下的计算，不是官方预测。参数和结果都可回看与导出。',
+ '气象模块展示城市代表点的数值天气预报。界面保留有效时刻和来源，当前值属于模式估计。此模块需要联网；不可用时显示明确状态，不把旧截图当作当前实时观测。',
+ '五处城市空间展示包括西安、合肥、上海、广州和深圳，支持地标近景、氛围和画质切换。不同场景的摄影、重建与概化内容保留来源；它们帮助认识地点，不构成全国完整实时数字孪生。',
+ '介绍、引导、本地规则解读与导出构成辅助阅读链路。用户可以先认识作品，再进入指标、查看解释并核对出处。站内介绍片承担网站导览作用，答辩使用本PPT。',
+ '体验背后，需要数据、页面、空间和本地服务共同工作。下面介绍系统实现和已经完成的验证。',
+ 'React和TypeScript组织页面与状态；MapLibre、SVG、Three.js承担地图、图表和空间；Node与Express提供本地服务。发布包附运行时，评委解压后即可按说明启动。开源基础与作品整合贡献分别说明。',
+ '作品的创新落在具体的阅读过程：把定位、比较、情景与核对连接起来；将缺失值、同年口径和假设条件放到可见界面；让二维指标和地点场景共同服务解释。',
+ '既有检查包括一百零八项单元测试，以及五处模型、主要浏览器与部分移动视口检查。本次更新后又完成团队页、八个截图场景和压缩包解压启动检查。验证结果对应已检查的环境与路径；天气和外部来源仍需网络。',
+ '团队按照五个岗位承担责任：杨炜晨统筹项目，示例成员1负责产品交互，示例成员2负责前端地图，示例成员3负责数据服务，示例成员4负责视觉质量与答辩。AI工具辅助方案比较、代码生成与修改、排错、文案和检查，统计数值来自记录的官方来源。',
+ '数瞰可用于课堂展示、城市科普和自主数据探索。后续将继续完善城市覆盖、历史连续性和使用反馈。当前作品保留范围和口径边界，帮助使用者形成有依据的观察。',
+ '数瞰希望让城市数据更容易读懂：用连续的探索路径组织信息，用清楚的来源和边界支持判断。感谢各位老师，欢迎交流与体验。'
+ ],
+ P:[
+ '各位评委老师好，我们的作品是纸上有数——剪纸结构与几何的交互实验工坊。作品将剪纸操作、几何观察和结构反馈放在同一浏览器环境，让使用者在剪与展之间看见对称与连接。',
+ '本次介绍分三部分：为什么要让纸艺中的几何可观察，如何完成预测、操作和比较，以及作品的技术、验证与应用。',
+ '一张纸折起来以后，剪下一刀，展开会出现什么？我们以这个直观的问题作为进入几何探索的起点。',
+ '作品围绕三个问题设计：一刀为什么产生多个缺口，图案是否仍相连，修改之后结构发生了什么。交互让这些问题能被观察和反复尝试。',
+ '当前工坊支持二、四、八层固定折法，并将预测、剪切、展开、比较与记录组织为连续过程。六折、看图还原挑战和教师打印包属于后续方向。',
+ '折叠操作和展开结果并置，帮助建立输入与结果的联系。米白、朱红和纸纹保留材料感；引导、主题与声音设置支持不同使用状态。',
+ '接下来展示一条完整的操作过程，从预测开始，通过剪切与反馈，再将探索留存下来。',
+ '用户在折叠区域绘制剪口，展开视图随操作更新。通过逐步展开，可以观察一个剪口怎样形成重复和对称，进而建立直觉与几何关系。',
+ '用户先留下预测，再展开观察，并结合结构提示注意连接变化。作品实现了这一学习过程；学习效果仍需通过真人试用验证。',
+ '当剪切造成不理想的结构时，可以回看历史剪口，比较修改前后的差异，并继续调整。这里的连通判断属于数字几何反馈，不等于纸张的实际材料强度。',
+ '自动保存、作品管理与项目导入导出，让探索可以跨次继续。记录保存在当前浏览器环境中，项目备份支持迁移；当前没有将其描述为云同步。',
+ '十三项课程与迁移实验提供分步探索路径。灵感库帮助使用者找到图案方向，再通过原创步骤组织和自己的修改形成新的尝试。参考内容保留来源。',
+ '作品支持项目、矢量图和实际尺寸纸样输出，并附十七份数字纸样。打印时需要校准标尺；这里展示数字输出，真实打印、剪切和材料强度还需实物检验。',
+ '接下来介绍作品如何保持几何、编辑状态与输出一致，以及我们验证到的范围。',
+ '页面处理绘制、历史和作品状态，Worker执行本地几何计算，结果用于展开与结构提示。毫米坐标贯穿预览、存档和输出。clipper2-ts承担几何布尔运算，作品在其基础上适配折叠与交互过程。',
+ '作品将做出图案扩展为看明白过程：预测与结果形成观察，结构反馈嵌入编辑，历史比较和记录保留探索轨迹。创新来自课程、交互、视觉和技术的整体组织。',
+ '既有软件检查包括一百三十四项单元测试和一百二十个端到端用例；本次更新完成团队页、八个截图场景与解压运行检查。真实打印、剪切和真人学习效果仍属于后续验证。',
+ '杨炜晨负责项目统筹，示例成员1负责课程交互，示例成员2负责前端，示例成员3负责几何数据，示例成员4负责视觉质量与答辩。AI工具辅助方案、代码生成修改、问题定位、文案和检查，结果通过实际程序操作核对。',
+ '作品可用于课堂演示、自主探索和纸艺科普。后续先开展真人试用、打印和剪切验证，再考虑六折、看图还原挑战及教师打印包。当前核心体验已经独立成立。',
+ '纸上有数把剪纸变成可预测、可观察和可修正的几何体验。我们希望保留动手创造的乐趣，也让每一次修改都有理解的依据。感谢各位老师，欢迎交流与体验。'
+ ]};
+async function make(code){
+ const isS=code==='S',p=source.projects[isS?0:1],name=p.name;
+ const t=isS?{bg:'#F5F3EB',ink:'#15392C',muted:'#526B5E',accent:'#988645',soft:'#E4E9DF',rule:'#C5CEC0'}:{bg:'#FAF6ED',ink:'#493C31',muted:'#79695B',accent:'#B22A21',soft:'#EFE5D6',rule:'#D6C3AF'};
+ const pack=path.join(W,p.folder,'artifacts/competition-team-20261007'),shots=path.join(pack,'作品截图-8张');
+ const files=(await fs.readdir(shots)).filter(x=>x.endsWith('.png')).sort();
+ const shot=n=>path.join(shots,files[n-1]);
+ const pres=Presentation.create({slideSize:{width:1280,height:720}});const slides=[];
+ const add=()=>{const s=pres.slides.add();slides.push(s);return s;};
+ const h=(title,n,sec='')=>{const s=add();header(s,title,t,n,sec);return s;};
+ async function chapter(num,title,sub,id){const s=add();await image(s,art(id),0,0,1280,720,null,'cover');const c=isS?'#F3F0D9':t.ink;txt(s,num,65,92,300,100,76,isS?'#C6B97C':t.accent,false,SERIF);txt(s,title,65,240,650,160,52,c,true,SERIF);txt(s,sub,68,445,590,90,28,isS?'#D4DCC6':t.muted);return s;}
+ async function evidence(title,n,snum,rows,crop=null,caption='作品实际运行画面'){const s=h(title,n,'02 / 作品体验');await image(s,shot(snum),60,168,818,455,crop);bodyRows(s,rows,919,178,300,t,136);footer(s,caption,t);return s;}
+ // 01 cover
+ {const s=add();await image(s,art(code+'01'),0,0,1280,720,null,'cover');const c=isS?'#F6F1D6':t.ink;txt(s,'全国大学生数字媒体科技作品及创意竞赛',65,56,680,35,22,isS?'#C6B97C':t.accent);txt(s,name,60,177,650,135,isS?104:88,c,true,SERIF);txt(s,isS?'中国城市群数据探索平台':'剪纸结构与几何的交互实验工坊',66,322,660,95,34,c);txt(s,isS?'让城市数据，更容易读懂':'在剪与展之间，看见对称与连接',66,441,650,66,29,c);txt(s,'广州科技职业技术大学',66,558,720,35,25,c,true);txt(s,'杨炜晨 · 示例成员1 · 示例成员2 · 示例成员3 · 示例成员4',66,604,800,30,22,c);txt(s,'指导教师：示例成员5、示例成员6',66,648,800,29,22,c);}
+ // 02 agenda
+ {const s=h('目录',2,'答辩内容');const blocks=isS?[['为什么做','阅读城市数据的障碍'],['如何体验','定位、比较、情景与空间'],['如何实现','技术、验证、团队与应用']]:[['为什么做','让纸艺中的几何可观察'],['如何体验','预测、剪切、展开与比较'],['如何实现','技术、验证、团队与应用']];blocks.forEach((a,i)=>{const y=183+i*145;txt(s,'0'+(i+1),65,y,130,85,62,t.accent,false,SERIF);txt(s,a[0],230,y+5,340,48,36,t.ink,true);txt(s,a[1],650,y+10,510,50,29,t.muted);line(s,230,y+99,958,t.rule);});}
+ //03 chapter
+ await chapter('01',isS?'城市数据，\n如何被看懂？':'一刀之后，\n会出现什么？',isS?'从分散信息，走向有依据的观察':'把直觉变成可以观察和修正的过程',code+'02');
+ //04 problem
+ {const s=h(isS?'城市比较，需要先解决阅读障碍':'剪纸中的几何，需要被看见',4,'01 / 选题与设计');await image(s,art(isS?'S04':'P05'),690,170,520,442,null,'cover');bodyRows(s,isS?[['找到城市','名称与区域范围分散'],['比较口径','年份、单位与统计范围需对齐'],['区分结果','统计记录与假设计算需分开']]:[['折叠之后','一刀为何变成多个缺口？'],['连接变化','图案还连在一起吗？'],['继续修改','结构和花纹发生了什么？']],65,174,570,t,145);footer(s,'作品设计问题与使用场景',t);}
+ //05 scope / learning flow
+ {const s=h(isS?'精选城市，形成连续的探索路径':'围绕一次剪切，组织完整学习过程',5,'01 / 作品定位');const values=isS?[['9','区域范围'],['41','去重城市'],['5','空间场景']]:[['2 / 4 / 8','层固定折法'],['13','课程与迁移实验'],['17','数字纸样']];values.forEach((v,i)=>{const x=67+i*410;txt(s,v[0],x,180,360,112,i===0&&!isS?74:88,t.accent,true,SERIF);txt(s,v[1],x+3,303,360,46,28,t.ink);});line(s,65,385,1150,t.rule);const flow=isS?'定位城市  →  比较差异  →  探索情景  →  核对来源':'预测  →  剪切  →  展开  →  比较  →  记录';txt(s,flow,65,445,1150,90,36,t.ink,true);txt(s,isS?'覆盖精选城市集合；重叠区域不直接相加':'以对称、孔洞与连接为观察对象',65,575,1150,50,26,t.muted);footer(s,isS?'依据：当前版本数据目录与场景清单':'依据：当前课程、固定折法与纸样目录',t);}
+ //06 design / data standards
+ if(isS){const s=h('同年同口径，是比较的前提',6,'01 / 数据规范');table(s,[['信息字段','界面中的作用'],['年份与单位','让比较具有共同基准'],['范围与出处','让指标可以追溯'],['缺失状态','同年暂缺保持可见']],65,180,730,366,t,[250,480]);txt(s,'40',866,194,290,108,91,t.accent,true,SERIF);txt(s,'座城市具备核验的\n2025年末常住人口',870,325,318,85,27,t.ink);txt(s,'南昌同年人口暂缺\n2024年参考值单列',870,446,318,92,25,t.muted);footer(s,'依据：发布数据目录；逐项统计出处保留于来源界面',t);}
+ else{const s=h('纸艺视觉，服务清楚的操作秩序',6,'01 / 交互与视觉');await image(s,shot(6),65,169,575,451,{left:.34,top:.2,right:.34,bottom:.22});bodyRows(s,[['操作与结果并置','减少在画面之间来回寻找'],['纸材与留白','米白、朱红与细线形成层级'],['主题与声音','按使用情境调整体验']],725,185,490,t,145);footer(s,'作品实际运行画面：工坊设置',t);}
+ //07 chapter
+ await chapter('02',isS?'从一座城市，\n展开多种观察':'从预测开始，\n在比较中理解',isS?'定位 · 比较 · 情景 · 空间':'预测 · 剪切 · 展开 · 留存',code+'03');
+ //08-12 real product evidence
+ if(isS){
+  await evidence('定位城市，进入统一的指标视图',8,2,[['快速定位','中文与拼音检索'],['统一视图','指标与区域联动'],['保留出处','随时核对数据来源']]);
+  await evidence('三城并列，让差异更容易观察',9,3,[['最多三城','经济与产业并列比较'],['口径明确','保留年份与单位'],['回到来源','从差异形成新的问题']],{left:.23,top:.13,right:.23,bottom:.14});
+  {const s=h('A/B情景，让参数影响可见',10,'02 / 作品体验');await image(s,path.join(BUILD,'scenario-panel.png'),60,190,818,397);bodyRows(s,[['保存参数','情景A作为比较基准'],['调整假设','观察情景B的变化'],['结果可导出','便于继续核对与解释']],919,178,300,t,136);txt(s,'同一基年，比较两组增长假设下的发展路径',65,600,805,44,25,t.ink);footer(s,'作品实际运行画面；情景为假设计算，并非官方预测',t);}
+  await evidence('天气信息，附带来源与有效时刻',11,5,[['代表点预报','Open-Meteo数值预报'],['模式估计','当前值并非站点实测'],['联网更新','异常时提供明确状态']],{left:.785,top:.54,right:.01,bottom:0},'来源：Open-Meteo；画面时刻为截图当时，非答辩时实时天气');
+  await evidence('五处空间展示，建立地点感',12,6,[['五处场景','西安、合肥、上海\n广州、深圳'],['多种视角','地标近景与氛围切换'],['来源明确','摄影、重建和概化分明']],{left:.063,top:.37,right:.02,bottom:0},'作品实际运行画面：上海；模型与影像来源见作品清单');
+ }else{
+  await evidence('折叠与展开，建立一刀和图案的联系',8,1,[['输入剪口','在折叠区域绘制'],['观察展开','结果随操作更新'],['理解对称','看见重复与对应关系']],{left:.14,top:.385,right:.175,bottom:.045});
+  await evidence('先预测，再用结果检验直觉',9,2,[['留下预测','表达自己的初始判断'],['展开观察','注意图案与连接变化'],['继续追问','理解变化的原因']],{left:.14,top:.22,right:.015,bottom:.05});
+  await evidence('修改前后对照，让试错有依据',10,3,[['回看刀序','定位可以修改的剪口'],['比较结构','观察前后的连接差异'],['继续调整','将反馈用于下一步']],{left:.25,top:.17,right:.25,bottom:.17},'作品实际运行画面；几何连通不等于材料强度');
+  await evidence('作品与记录，让探索可以延续',11,4,[['自动保存','降低中断带来的损失'],['作品管理','回看与继续修改'],['项目备份','导入导出支持迁移']],{left:.25,top:.15,right:.25,bottom:.15});
+  await evidence('课程与灵感，提供继续尝试的方向',12,5,[['13项内容','课程与迁移实验'],['灵感线索','图案方向与原创步骤'],['个人创作','模仿后继续调整']],null,'作品实际运行画面：灵感库；参考内容保留来源');
+ }
+ //13 product continuity
+ if(isS){const s=h('引导与规则解读，支持完整阅读',13,'02 / 作品体验');await image(s,shot(7),65,173,704,440,{left:.125,top:.04,right:.125,bottom:.04});bodyRows(s,[['认识作品','介绍与操作引导'],['理解指标','本地规则辅助阅读'],['保留依据','导出后仍可追溯口径']],827,180,385,t,145);footer(s,'站内影片用于网站导览；答辩采用本PPT',t);}
+ else{const s=h('数字纸样，保留走向纸面的途径',13,'02 / 输出与实践');await image(s,path.join(BUILD,'paper-print.png'),70,155,658,478);bodyRows(s,[['毫米坐标','预览与输出统一尺寸'],['多种输出','项目、SVG与纸样'],['打印校准','先量标尺，再进行剪切']],814,174,395,t,144);footer(s,'包内真实数字纸样；实物打印与剪切效果尚待验证',t);}
+ //14 chapter
+ await chapter('03',isS?'探索背后，\n有实现与验证支撑':'纸艺体验，\n有计算与验证支撑',isS?'数据口径 · 交互实现 · 本地交付': '几何一致性 · 交互反馈 · 本地交付',isS?'S05':'P04');
+ //15 architecture
+ {const s=h(isS?'系统实现：数据、交互与空间协同':'系统实现：绘制、计算与反馈一致',15,'03 / 技术实现');diagram(s,isS?[['页面与状态','React / TypeScript\n指标、对比与情景'],['可视化表达','MapLibre / SVG\nThree.js / 空间展示'],['本地服务','Node / Express\n数据接口与发布']]:[['输入与状态','绘制 / 刀序 / 作品\n预测与学习记录'],['几何计算','Worker / clipper2-ts\n折叠、布尔与连通'],['反馈与输出','展开 / 结构提示\n毫米存档与导出']],65,226,1150,244,t);txt(s,isS?'版本化数据与来源目录，贯穿页面、计算和解释':'统一毫米坐标，贯穿预览、存档与实际尺寸输出',65,520,1150,60,31,t.ink,true);footer(s,isS?'开源基础与团队系统整合分别说明；运行包已附本地运行时':'clipper2-ts为第三方几何内核；作品完成折叠与交互适配',t);}
+ //16 contributions
+ {const s=h(isS?'创新落在可理解、可追溯的阅读过程':'创新落在可观察、可修正的探索过程',16,'03 / 创新与贡献');const items=isS?[['连续阅读','定位、比较、情景与来源核对','将分散操作组织为一条探索路径'],['可见边界','同年口径、缺失值与假设条件','让数据限制和计算前提进入界面'],['空间联系','二维指标与五处城市场景','用地点体验辅助城市认识']]:[['预测与观察','先留下判断，再展开检验','让操作围绕一个明确问题展开'],['结构反馈','把连接提示放进剪纸编辑','让修改有可以观察的依据'],['过程留存','历史比较与学习记录','将一次尝试延伸为连续探索']];items.forEach((a,i)=>{const y=174+i*151;txt(s,'0'+(i+1),65,y,90,80,53,t.accent,false,SERIF);txt(s,a[0],186,y+2,320,49,32,t.ink,true);txt(s,a[1],543,y+3,670,53,29,t.ink);txt(s,a[2],543,y+58,670,45,24,t.muted);if(i<2)line(s,184,y+123,1028,t.rule);});}
+ //17 validation
+ {const s=h('已完成的软件验证与交付检查',17,'03 / 完成度与验证');table(s,isS?[['检查对象','已完成结果'],['基础逻辑','108项单元测试通过'],['模型与页面','五处模型、核心浏览器路径检查'],['本次交付','8个截图场景、团队页与解压启动通过']]:[['检查对象','已完成结果'],['基础逻辑','134项单元测试通过'],['操作链路','既有120个端到端用例通过'],['本次交付','8个截图场景、团队页与解压启动通过']],65,178,1150,330,t,[300,850]);txt(s,isS?'本地核心功能可运行；天气与外部来源需要联网':'实物打印、真实剪切和真人学习效果仍待验证',65,558,1150,70,29,t.ink,true);footer(s,'依据：项目测试与本次发布检查记录；结果对应已检查的环境与路径',t);}
+ //18 team
+ {const s=h('五位成员，共同承担作品责任',18,'03 / 团队与分工');txt(s,'广州科技职业技术大学',65,154,740,45,31,t.ink,true);txt(s,'指导教师：示例成员5、示例成员6',780,157,435,45,25,t.muted);const roles=isS?['队长 · 项目统筹','产品与交互策划','前端与地图交互','数据与服务逻辑','视觉、质量与答辩']:['队长 · 项目统筹','课程与交互策划','前端与交互开发','几何与数据逻辑','视觉、质量与答辩'];const names=['杨炜晨','示例成员1','示例成员2','示例成员3','示例成员4'];for(let i=0;i<5;i++){const y=224+i*72;txt(s,names[i],65,y,236,50,31,t.ink,true,SERIF);txt(s,roles[i],340,y+3,840,48,28,t.ink);line(s,65,y+57,1150,t.rule);}txt(s,'AI辅助：方案比较、代码生成与修改、排错、文案及检查',65,615,1140,44,23,t.muted);}
+ //19 applications/future
+ {const s=h(isS?'让城市数据进入课堂与自主探索':'让纸艺成为几何探索的入口',19,'03 / 应用与后续');txt(s,'当前应用',65,179,540,55,36,t.ink,true);txt(s,'后续完善',704,179,510,55,36,t.accent,true);bodyRows(s,isS?[['课堂展示','用地图、指标与空间讲解城市'],['城市科普','在比较中发现值得追问的问题'],['自主探索','导出结果并回到来源核对']]:[['课堂演示','通过折叠与展开讲解对称'],['自主实验','在修改与比较中观察结构'],['纸艺科普','从传统图案进入几何问题']],65,257,520,t,112);bodyRows(s,isS?[['覆盖与连续性','完善城市与历史资料'],['使用反馈','开展真实试用与改进'],['边界保持清楚','精选范围与假设持续标识']]:[['先完成现实验证','真人试用、打印与剪切'],['再扩展功能','六折、看图还原挑战'],['补齐教学材料','教师打印包作为后续方向']],704,257,510,t,112);}
+ //20 closing
+ {const s=add();await image(s,art(code+'06'),0,0,1280,720,null,'cover');const c=isS?'#F6F1D6':t.ink;txt(s,isS?'让城市数据，\n更容易读懂':'在剪与展之间，\n看见对称与连接',65,153,850,190,62,c,true,SERIF);txt(s,isS?'连续探索 · 清楚口径 · 可追溯来源':'预测与观察 · 结构反馈 · 过程留存',70,394,980,60,30,c);txt(s,'感谢聆听，欢迎交流与体验',70,530,920,56,31,c);txt(s,'广州科技职业技术大学',70,629,940,42,25,c);}
+ for(let i=0;i<slides.length;i++){
+  const refs=[`作品：${name}；版本${isS?'0.3.5':'0.4.0'}`,`本地真实截图：${shots}`];
+  if([0,2,3,6,13,19].includes(i))refs.push('概念配图：OpenAI内置imagegen，本会话生成；不作城市摄影、实物或测试证据');
+  if(isS&&[5,8,9].includes(i))refs.push('统计来源与口径：随作品source-code/public/data发布目录和来源面板逐项记录，保留原sourceUrl');
+  if(isS&&i===10)refs.push('Open-Meteo：https://open-meteo.com/；截图展示当时有效时刻的数值预报');
+  if(isS&&i===11)refs.push('模型/影像：https://www.arcgis.com/（Esri）、https://lbs.amap.com/（高德）、https://mars3d.cn/（Mars3D来源）；详细资产归属见作品public/models/manifest.json');
+  if(!isS&&i===14)refs.push('clipper2-ts：https://www.npmjs.com/package/clipper2-ts；React：https://react.dev/');
+  if(i===17)refs.push('岗位职责依用户批准的团队方案；辅助工具使用情况另见参赛包正式说明。');
+  refs.push('版式研究：Gabberflast/academic-pptx-skill；ningzimu/codex-ppt-skill；GordenSun/GordenPPTSkill；GordenSun/GordenSuperPPTSkills。参考方法，自建布局，未嵌入第三方模板素材。');
+  notes(slides[i],narratives[code][i],refs);
+ }
+ const work=path.join(BUILD,code);await fs.mkdir(work,{recursive:true});await fs.mkdir(path.join(work,'预览'),{recursive:true});
+ const candidate=path.join(work,'candidate.pptx');await (await PresentationFile.exportPptx(pres)).save(candidate);console.log(`${name}: exported ${slides.length} slides`);
+ for(let i=0;i<slides.length;i++){
+  const preview=await pres.export({slide:slides[i],format:'png',scale:1.5});await fs.writeFile(path.join(work,'预览',String(i+1).padStart(2,'0')+'.png'),new Uint8Array(await preview.arrayBuffer()));
+  const layout=await slides[i].export({format:'layout'});await fs.writeFile(path.join(work,String(i+1).padStart(2,'0')+'.layout.json'),await layout.text());
+  console.log(`${name}: rendered ${i+1}/20`);
+ }
+ await fs.writeFile(path.join(work,'deck.json'),JSON.stringify(pres.toProto()));
+ const final=path.join(OUT,`${name}-竞赛答辩-正式版.pptx`);
+ const result=await finalizePresentation({workspaceDir:ROOT,candidatePath:candidate,finalPath:final,pythonExecutable:PY,integrityValidatorPath:path.join(SKILL,'container_tools/inspect_presentation_package_integrity.py'),layoutValidatorPath:path.join(SKILL,'container_tools/inspect_presentation_layout_geometry.py'),explicitTotalSlideCount:20,requiredNativeTableOwnerSlides:isS?[6,17]:[17],requiredNativeChartOwnerSlides:[],fontPolicy:{basis:'design',families:[FONT,SERIF]},layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit',...(isS?['--require-native-table-slide','6']:[]),'--require-native-table-slide','17'],verifyArtifactToolImport:true,receiptPath:path.join(work,'validation-final.json')});
+ await fs.writeFile(path.join(work,'finalizer-result.json'),JSON.stringify(result,null,2));
+ await fs.writeFile(path.join(ROOT,`${name}-逐页讲稿.md`),'# '+name+'｜逐页讲稿\n\n'+narratives[code].map((v,i)=>`## ${String(i+1).padStart(2,'0')}\n\n${v}`).join('\n\n'));
+ console.log(`${name}: FINAL ${final}`);
+}
+for(const code of (process.argv[2]?[process.argv[2]]:['S','P']))await make(code);

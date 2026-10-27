@@ -1,0 +1,62 @@
+from pathlib import Path
+import base64,json,zipfile,hashlib,re,shutil
+import xml.etree.ElementTree as ET
+import fitz
+from PIL import Image,ImageChops,ImageStat
+
+root=Path(__file__).resolve().parent.parent
+workspace=root.parent
+out=root/'提交文件'
+archive=root/'制作记录'/'各轮稿'
+archive.mkdir(exist_ok=True)
+report={}
+sections=[]
+for code,name in [('S','数瞰'),('P','纸上有数')]:
+    src=out/f'{name}-服务价值重构版-v4.pptx'
+    ppt=out/f'{name}-答辩PPT-服务价值版.pptx'
+    shutil.copy2(src,ppt)
+    receipt=json.loads((root/'制作记录'/code/'validation-v4.json').read_text(encoding='utf-8'))
+    digest=hashlib.sha256(ppt.read_bytes()).hexdigest()
+    assert digest==receipt['finalSha256']
+    with zipfile.ZipFile(ppt) as z:
+        assert z.testzip() is None
+        slides=[n for n in z.namelist() if re.fullmatch(r'ppt/slides/slide\d+\.xml',n)]
+        notes=[n for n in z.namelist() if re.fullmatch(r'ppt/notesSlides/notesSlide\d+\.xml',n)]
+        assert len(slides)==len(notes)==24
+        text='\n'.join(''.join(ET.fromstring(z.read(n)).itertext()) for n in slides)
+        for fact in ['广州科技职业技术大学','示例成员5','示例成员6','杨炜晨','示例成员1','示例成员2','示例成员3','示例成员4','目录','感谢聆听']:
+            assert fact in text,(name,fact)
+    doc=fitz.open()
+    figures=[]
+    diffs=[]
+    for i in range(1,25):
+        image=root/'制作记录'/code/'最终文件渲染'/f'{i:02}.png'
+        assert image.is_file()
+        page=doc.new_page(width=960,height=540)
+        page.insert_image(page.rect,filename=str(image))
+        figures.append(f'<figure><img loading="lazy" alt="{name}第{i}页" src="data:image/png;base64,{base64.b64encode(image.read_bytes()).decode()}"><figcaption>{name} · {i:02} / 24</figcaption></figure>')
+        a=Image.open(root/'制作记录'/code/'预览'/f'{i:02}.png').convert('RGB')
+        b=Image.open(image).convert('RGB')
+        diffs.append({'slide':i,'mean_pixel_difference':sum(ImageStat.Stat(ImageChops.difference(a,b)).mean)/3})
+    doc.save(root/f'{name}-服务价值版-全页预览.pdf',deflate=True)
+    doc.close()
+    sections.append(f'<section id="{code}"><h2>{name} · 24 页</h2>'+''.join(figures)+'</section>')
+    report[name]={'slides':24,'notes':24,'size_bytes':ppt.stat().st_size,'sha256':digest,'zip_crc':'pass','team_identity':'pass','final_render_slide_count':24,'render_differences':diffs,'native_powerpoint_tested':False,'fonts_embedded':False}
+    target=workspace/'待补充材料-不放入评委运行包'/name/'02-正式答辩PPT'
+    target.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(ppt,target/ppt.name)
+    old=target/f'{name}-竞赛答辩-正式版.pptx'
+    if old.exists():
+        olddir=target/'旧版留存'
+        olddir.mkdir(exist_ok=True)
+        assert olddir.resolve().is_relative_to(workspace.resolve())
+        assert not (olddir/old.name).exists()
+        old.rename(olddir/old.name)
+    for draft in out.glob(f'{name}-服务价值重构版-v*.pptx'):
+        assert draft.resolve().is_relative_to(root.resolve())
+        assert not (archive/draft.name).exists()
+        draft.rename(archive/draft.name)
+html='''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双项目答辩PPT · 服务价值版</title><style>body{margin:0;background:#ecebe5;color:#19372c;font-family:"Microsoft YaHei",sans-serif}header{padding:40px 6vw 25px;background:#15392c;color:#f7f3e7}h1{font-size:32px;margin:0 0 15px}header p{line-height:1.9;max-width:950px}nav{position:sticky;top:0;background:#fffdf8;padding:16px 6vw;z-index:5;border-bottom:1px solid #ccc}a{color:#254d3b;margin-right:28px}section{padding:10px 3vw 40px;max-width:1500px;margin:auto}h2{font-size:28px;margin:32px 0}figure{margin:26px 0 45px}img{display:block;width:100%;height:auto;background:#fff;box-shadow:0 8px 28px #0002}figcaption{padding:12px;text-align:right;color:#5d695f}footer{padding:28px 6vw;background:#fffdf8;font-size:14px}</style><header><h1>双项目答辩PPT · 服务价值版</h1><p>每套24页，从使用者的问题出发，讲清具体功能、使用过程与帮助。包含封面、目录、三张章节过渡、功能演示、三个使用情境、服务价值、简要实现、验证与结尾。本页面由最终PPTX重新导入后逐页渲染，供完整审查。</p></header><nav><a href="#S">数瞰</a><a href="#P">纸上有数</a></nav>'''+''.join(sections)+'''<footer>每套PPT均附逐页演讲备注。概念插图表达使用情境，功能展示来自作品真实运行截图。正式上传请选取“提交文件”中的对应PPTX。</footer></html>'''
+(root/'双项目PPT-服务价值版预览.html').write_text(html,encoding='utf-8')
+(root/'制作记录'/'交付核对.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+print(json.dumps({k:{a:b for a,b in v.items() if a!='render_differences'} for k,v in report.items()},ensure_ascii=False,indent=2))

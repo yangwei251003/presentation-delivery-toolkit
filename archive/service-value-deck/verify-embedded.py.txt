@@ -1,0 +1,46 @@
+from pathlib import Path
+import zipfile,json,hashlib,struct,shutil
+from lxml import etree as E
+from PIL import Image,ImageChops
+root=Path(__file__).resolve().parent.parent
+work=root/'制作记录'/'字体嵌入核对'
+ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main','a':'http://schemas.openxmlformats.org/drawingml/2006/main','r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
+expected={'Noto Sans SC','Noto Serif SC','LXGW WenKai','Ma Shan Zheng'}
+report=[]
+for name in ['数瞰','纸上有数']:
+    ppt=root/'提交文件'/f'{name}-答辩PPT-字体完整嵌入版.pptx'
+    original=root/'提交文件'/f'{name}-答辩PPT-服务价值版.pptx'
+    faces=[]
+    with zipfile.ZipFile(ppt) as z,zipfile.ZipFile(original) as old:
+        assert z.testzip() is None
+        pres=E.fromstring(z.read('ppt/presentation.xml'))
+        assert pres.get('embedTrueTypeFonts') in ['1','true']
+        assert pres.get('saveSubsetFonts','0') in ['0','false']
+        fontlist=pres.find('p:embeddedFontLst',ns)
+        assert {f.find('p:font',ns).get('typeface') for f in fontlist}==expected
+        rels={r.get('Id'):r.get('Target') for r in E.fromstring(z.read('ppt/_rels/presentation.xml.rels'))}
+        for f in fontlist:
+            family=f.find('p:font',ns).get('typeface')
+            for style in list(f)[1:]:
+                part='ppt/'+rels[style.get('{'+ns['r']+'}id')]
+                data=z.read(part)
+                total,size,version,flags=struct.unpack_from('<IIII',data)
+                assert total==len(data) and size>1000
+                assert struct.unpack_from('<H',data,34)[0]==0x504c
+                faces.append({'family':family,'style':E.QName(style).localname,'bytes':len(data),'eot_flags':flags,'font_bytes':size})
+        for i in range(1,25):
+            for part in [f'ppt/slides/slide{i}.xml',f'ppt/notesSlides/notesSlide{i}.xml']:
+                a=E.fromstring(old.read(part)).xpath('//a:t/text()',namespaces=ns)
+                b=E.fromstring(z.read(part)).xpath('//a:t/text()',namespaces=ns)
+                assert a==b,(name,part,'text changed')
+    diffs=[]
+    for i in range(1,25):
+        a=Image.open(work/f'{name}-嵌入前'/f'幻灯片{i}.PNG').convert('RGB')
+        b=Image.open(work/f'{name}-嵌入后'/f'幻灯片{i}.PNG').convert('RGB')
+        assert ImageChops.difference(a,b).getbbox() is None,(name,i,'render changed')
+        diffs.append(i)
+    report.append({'project':name,'slides':24,'native_powerpoint_render_identical_pages':len(diffs),'slide_and_notes_text_identical':True,'embedded_fonts':faces,'file_bytes':ppt.stat().st_size,'sha256':hashlib.sha256(ppt.read_bytes()).hexdigest(),'clean_machine_tested':False,'com_font_embedded_property':0,'verification_basis':'OOXML embeddedFontLst relationships and EOT font data; PowerPoint reopen and before/after render comparison'})
+    target=root.parent/'待补充材料-不放入评委运行包'/name/'02-正式答辩PPT'
+    shutil.copy2(ppt,target/ppt.name)
+(work/'完整嵌入核对.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
+print(json.dumps(report,ensure_ascii=False,indent=2))

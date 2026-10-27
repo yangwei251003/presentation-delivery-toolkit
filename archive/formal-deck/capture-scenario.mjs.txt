@@ -1,0 +1,21 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {chromium} from '../prd-digital-twin/node_modules/playwright-core/index.mjs';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const pack=path.join(root,'../prd-digital-twin/artifacts/competition-team-20261007/数瞰-评委提交版');
+const {createApp}=await import(pathToFileURL(path.join(pack,'server/index.mjs')));
+const server=await new Promise(r=>{const s=createApp({root:pack,env:{}}).listen(0,'127.0.0.1',()=>r(s));});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1600,height:1200},deviceScaleFactor:2,locale:'zh-CN',reducedMotion:'reduce'});
+ await page.addInitScript(()=>{localStorage.setItem('shukan.intro.v1','seen');localStorage.setItem('shukan.onboarding.v3',JSON.stringify({dismissed:true,completed:true}));});
+ await page.goto(`http://127.0.0.1:${server.address().port}/#/prd/nation/all`);
+ await page.getByRole('combobox',{name:'搜索已接入城市'}).fill('深圳');await page.getByRole('option').first().click();
+ await page.getByRole('button',{name:'发展推演',exact:true}).click();await page.getByRole('button',{name:'积极',exact:true}).click();await page.getByRole('button',{name:'把当前参数保存为情景 A'}).click();await page.getByRole('button',{name:'审慎',exact:true}).click();
+ await page.locator('.toast').waitFor({state:'hidden'});await page.evaluate(()=>document.fonts.ready);
+ const panel=page.locator('.bottom-panel').filter({has:page.locator('.scenario-timeline')});
+ await panel.screenshot({path:path.join(root,'制作记录/scenario-panel.png'),animations:'disabled'});
+ await page.locator('.insight-panel').screenshot({path:path.join(root,'制作记录/scenario-control.png'),animations:'disabled'});
+ console.log('Scenario UI captured with complete axes and controls.');
+}finally{await browser.close();await new Promise(r=>server.close(r));}
